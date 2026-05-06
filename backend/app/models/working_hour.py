@@ -7,7 +7,7 @@ from app.models.user import Base
 
 
 class WorkingHour(Base):
-    __tablename__ = "working_hours"
+    __tablename__ = "barber_schedules"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     barber_id: Mapped[int] = mapped_column(ForeignKey("barbers.id", ondelete="CASCADE"), index=True, nullable=False)

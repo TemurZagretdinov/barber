@@ -7,7 +7,7 @@ from app.models.user import Base
 
 
 class BookingReview(Base):
-    __tablename__ = "booking_reviews"
+    __tablename__ = "reviews"
     __table_args__ = (UniqueConstraint("booking_id", name="uq_booking_reviews_booking_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -23,7 +23,7 @@ class BookingReview(Base):
 
 
 class CustomerFavoriteBarber(Base):
-    __tablename__ = "customer_favorite_barbers"
+    __tablename__ = "customer_favorites"
     __table_args__ = (UniqueConstraint("customer_id", "barber_id", name="uq_customer_favorite_barber"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
