@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Sharp Cuts Booking",
+    "slug": "sharp-cuts",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f1f3f6"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "extra": {
+      "apiBaseUrl": "http://10.0.2.2:8090",
+      "eas": {
+        "projectId": "bcc035d3-a331-47a2-97e7-5321e49b128b"
+      }
+    },
+    "owner": "barberbros-organization"
+  }
+}

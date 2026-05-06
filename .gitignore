@@ -1,0 +1,12 @@
+﻿.env
+backend/.env
+frontend/.env
+mobile/.env
+node_modules/
+frontend/node_modules/
+mobile/node_modules/
+backend/.venv/
+__pycache__/
+.expo/
+frontend/dist/
+*.log
