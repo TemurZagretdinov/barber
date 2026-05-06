@@ -1,11 +1,13 @@
 from datetime import date
+from hmac import compare_digest
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_barber, get_current_user, require_admin
 from app.api.routes.barbers import serialize_barber
+from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.database import get_db
 from app.models.barber import Barber
@@ -23,6 +25,7 @@ from app.services.booking_service import (
     update_booking_status,
 )
 from app.services.dashboard_service import get_admin_dashboard, get_admin_dashboard_v2
+from app.services.demo_seed_service import seed_demo_data
 
 router = APIRouter()
 
@@ -38,6 +41,33 @@ def dashboard_v2(db: Session = Depends(get_db)) -> AdminDashboardV2:
 
 
 WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
+def validate_seed_secret(x_seed_secret: str | None) -> None:
+    if not settings.seed_secret:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SEED_SECRET is not configured on the server.",
+        )
+    if not x_seed_secret or not compare_digest(x_seed_secret, settings.seed_secret):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid seed secret")
+
+
+@router.post("/admin/seed-demo-data", include_in_schema=False)
+@router.post("/seed-demo-data")
+def seed_demo_data_endpoint(
+    x_seed_secret: str | None = Header(default=None, alias="X-Seed-Secret"),
+    db: Session = Depends(get_db),
+) -> dict[str, int | str]:
+    # Alpha/dev seeding endpoint for deployments where shell access is unavailable.
+    # Keep SEED_SECRET private and remove/rotate it before production use.
+    validate_seed_secret(x_seed_secret)
+    try:
+        result = seed_demo_data(db)
+    except Exception:
+        db.rollback()
+        raise
+    return {"status": "ok", **result}
 
 
 def sync_barber_working_hours(db: Session, barber: Barber) -> None:

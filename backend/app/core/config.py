@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     admin_email: str = Field(default="admin@gmail.com", alias="ADMIN_EMAIL")
     admin_password: str = Field(default="admin123", alias="ADMIN_PASSWORD")
     admin_full_name: str = Field(default="Admin", alias="ADMIN_FULL_NAME")
+    seed_secret: str = Field(default="", alias="SEED_SECRET")
     telegram_use_polling: bool = Field(default=False, alias="TELEGRAM_USE_POLLING")
     telegram_bot_token: str = Field(default="", alias="BOT_TOKEN")
 
