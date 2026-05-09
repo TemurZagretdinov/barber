@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.database import get_db
 from app.models.barber import Barber
 from app.models.barber_service import BarberService
-from app.schemas.barber import AvailableSlot, BarberRead, BarberServiceRead
-from app.services.booking_service import get_available_slots
+from app.schemas.barber import AvailableSlot, AvailableSlotsResponse, BarberRead, BarberServiceRead
+from app.services.booking_service import get_available_slots, get_available_slots_response
 
 router = APIRouter()
 
@@ -118,3 +118,13 @@ def available_slots(
     db: Session = Depends(get_db),
 ) -> list[AvailableSlot]:
     return get_available_slots(db, barber_id, date, service_id)
+
+
+@router.get("/barbers/{barber_id}/available-slots", response_model=AvailableSlotsResponse)
+def available_slots_v2(
+    barber_id: int,
+    date: date,
+    service_id: int | None = None,
+    db: Session = Depends(get_db),
+) -> AvailableSlotsResponse:
+    return get_available_slots_response(db, barber_id, date, service_id)

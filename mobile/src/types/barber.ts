@@ -58,6 +58,8 @@ export interface AvailableSlot {
   is_available: boolean;
   is_booked: boolean;
   is_expired?: boolean;
+  available?: boolean | null;
+  reason?: string | null;
 }
 
 export interface BarberService {

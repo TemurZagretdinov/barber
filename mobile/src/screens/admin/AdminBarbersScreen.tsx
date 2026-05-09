@@ -9,10 +9,12 @@ import { barberImage, barberName, barberRating, barberSpecialty } from "../../co
 import { AdminPageHeader, AdminPanel } from "../../components/admin/AdminPanel";
 import { adminColors, adminRadius, adminSpacing, adminTypography } from "../../components/admin/adminTheme";
 import { PrimaryButton } from "../../components/PrimaryButton";
-import { colors, ScreenContainer } from "../../components/ScreenContainer";
+import { ScreenContainer } from "../../components/ScreenContainer";
+import { useTheme } from "../../theme/theme";
 import type { Barber } from "../../types/barber";
 
 export function AdminBarbersScreen() {
+  const { theme } = useTheme();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -100,35 +102,35 @@ export function AdminBarbersScreen() {
           <PrimaryButton
             title="Add"
             onPress={() => setModalOpen(true)}
-            icon={<Ionicons name="add" color="#fff" size={18} />}
+            icon={<Ionicons name="add" color={theme.colors.onGold} size={18} />}
             style={styles.addButton}
           />
         }
       />
-      {loading ? <ActivityIndicator style={styles.state} color="#C9A96E" /> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {!loading && barbers.length === 0 ? <Text style={styles.empty}>No barbers found.</Text> : null}
+      {loading ? <ActivityIndicator style={styles.state} color={theme.colors.gold} /> : null}
+      {error ? <Text style={[styles.error, { color: theme.colors.danger }]}>{error}</Text> : null}
+      {!loading && barbers.length === 0 ? <Text style={[styles.empty, { color: theme.colors.muted }]}>No barbers found.</Text> : null}
 
       <View style={styles.list}>
         {barbers.map((barber) => (
           <AdminPanel key={barber.id} style={styles.barberCard}>
-            <Image source={{ uri: barberImage(barber) }} style={styles.avatar} />
+            <Image source={{ uri: barberImage(barber) }} style={[styles.avatar, { backgroundColor: theme.colors.elevated }]} />
             <View style={styles.info}>
               <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>{barberName(barber)}</Text>
+                <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={1}>{barberName(barber)}</Text>
                 <View style={styles.rating}>
                   <Ionicons name="star" color="#f59e0b" size={14} />
-                  <Text style={styles.ratingText}>{barberRating(barber).toFixed(1)}</Text>
+                  <Text style={[styles.ratingText, { color: theme.colors.muted }]}>{barberRating(barber).toFixed(1)}</Text>
                 </View>
               </View>
-              <Text style={styles.specialty} numberOfLines={1}>{barberSpecialty(barber)}</Text>
-              <Text style={styles.meta} numberOfLines={2}>
+              <Text style={[styles.specialty, { color: theme.colors.muted }]} numberOfLines={1}>{barberSpecialty(barber)}</Text>
+              <Text style={[styles.meta, { color: theme.colors.subtle }]} numberOfLines={2}>
                 {barber.years_experience ?? 0} yrs exp - {barber.email} - {barber.total_bookings ?? 0} total bookings
               </Text>
             </View>
-            <View style={styles.todayBox}>
-              <Text style={styles.todayValue}>{barber.today_bookings ?? 0}</Text>
-              <Text style={styles.todayLabel}>today</Text>
+            <View style={[styles.todayBox, { backgroundColor: theme.colors.goldSoft }]}>
+              <Text style={[styles.todayValue, { color: theme.colors.gold }]}>{barber.today_bookings ?? 0}</Text>
+              <Text style={[styles.todayLabel, { color: theme.colors.muted }]}>today</Text>
             </View>
           </AdminPanel>
         ))}
@@ -160,7 +162,7 @@ export function AdminBarbersScreen() {
               <Field label="Xizmat narxi" value={form.base_price} onChangeText={(value) => setForm({ ...form, base_price: value })} />
               <Field label="Tajriba yili" value={form.years_experience} onChangeText={(value) => setForm({ ...form, years_experience: value })} />
               <View style={styles.switchRow}>
-                <Text style={styles.formLabel}>Active</Text>
+                <Text style={[styles.formLabel, { color: theme.colors.muted }]}>Active</Text>
                 <Switch value={form.is_active} onValueChange={(value) => setForm({ ...form, is_active: value })} />
               </View>
             </FormSection>
@@ -179,19 +181,25 @@ export function AdminBarbersScreen() {
 }
 
 function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  const { theme } = useTheme();
   return (
     <AdminPanel style={styles.formSection}>
-      <Text style={styles.formTitle}>{title}</Text>
+      <Text style={[styles.formTitle, { color: theme.colors.text }]}>{title}</Text>
       {children}
     </AdminPanel>
   );
 }
 
 function Field({ label, style, ...props }: ComponentProps<typeof TextInput> & { label: string; style?: object }) {
+  const { theme } = useTheme();
   return (
     <View style={style}>
-      <Text style={styles.formLabel}>{label}</Text>
-      <TextInput {...props} placeholderTextColor="#98a2b3" style={styles.input} />
+      <Text style={[styles.formLabel, { color: theme.colors.muted }]}>{label}</Text>
+      <TextInput
+        {...props}
+        placeholderTextColor={theme.colors.subtle}
+        style={[styles.input, { backgroundColor: theme.colors.input, borderColor: theme.colors.line, color: theme.colors.text }]}
+      />
     </View>
   );
 }

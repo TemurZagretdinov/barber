@@ -4,19 +4,37 @@
     "slug": "sharp-cuts",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
     "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
       "backgroundColor": "#f1f3f6"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Yaqin atrofdagi barberlarni ko'rsatish uchun lokatsiyangiz kerak."
+      }
     },
-    "android": {},
+    "android": {
+      "package": "com.temurbek.sharpcuts",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
+      }
+    },
     "extra": {
-      "apiBaseUrl": "http://10.0.2.2:8090",
+      "apiBaseUrl": "https://barber-backend-nukr.onrender.com",
       "eas": {
         "projectId": "bcc035d3-a331-47a2-97e7-5321e49b128b"
       }

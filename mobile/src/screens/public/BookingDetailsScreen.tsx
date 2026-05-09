@@ -1,91 +1,28 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { useRef, useState } from "react";
-import { Animated, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useState } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { createBooking } from "../../api/bookings";
 import { BarberCard, barberName } from "../../components/BarberCard";
+import { LuxuryInput } from "../../components/LuxuryInput";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import type { PublicStackParamList } from "../../navigation/types";
 import { clearBookingDraft } from "../../store/bookingDraftStore";
+import { useAuth } from "../../store/authStore";
+import { useTheme } from "../../theme/theme";
 import { formatDateLong, formatTime } from "../../utils/date";
 import { isValidPhone } from "../../utils/phone";
 
 type Props = NativeStackScreenProps<PublicStackParamList, "BookingDetails">;
 
 // ─── Dark Input ───────────────────────────────────────────────────────────────
-function DarkInput({
-  icon,
-  placeholder,
-  value,
-  onChangeText,
-  keyboardType,
-  autoCapitalize,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  placeholder: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  keyboardType?: "email-address" | "default" | "phone-pad";
-  autoCapitalize?: "none" | "sentences" | "words";
-}) {
-  const [focused, setFocused] = useState(false);
-  const anim = useRef(new Animated.Value(0)).current;
-
-  function onFocus() {
-    setFocused(true);
-    Animated.timing(anim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
-  }
-  function onBlur() {
-    setFocused(false);
-    Animated.timing(anim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
-  }
-
-  const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: ["#2A2A2A", colors.gold] });
-
-  return (
-    <Animated.View style={[inp.wrap, { borderColor }]}>
-      <Ionicons name={icon} size={18} color={focused ? colors.gold : "#555555"} style={inp.icon} />
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#555555"
-        keyboardType={keyboardType}
-        autoCapitalize={autoCapitalize ?? "sentences"}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        style={inp.input}
-      />
-    </Animated.View>
-  );
-}
-
-const inp = StyleSheet.create({
-  wrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.soft,
-    borderRadius: 14,
-    borderWidth: 1,
-    minHeight: 56,
-    paddingHorizontal: 16,
-  },
-  icon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "500",
-  },
-});
-
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export function BookingDetailsScreen({ navigation, route }: Props) {
-  const { barber, service, date, time } = route.params;
+  const { barber, service, date, time, bookingSource } = route.params;
+  const auth = useAuth();
+  const { theme } = useTheme();
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [error, setError] = useState("");
@@ -108,7 +45,8 @@ export function BookingDetailsScreen({ navigation, route }: Props) {
         appointment_time: time,
       });
       await clearBookingDraft();
-      navigation.navigate("BookingSuccess", { booking, barberName: barberName(barber) });
+      const resolvedSource = bookingSource ?? (auth.user?.role === "customer" ? "customer" : "public");
+      navigation.navigate("BookingSuccess", { booking, barberName: barberName(barber), bookingSource: resolvedSource });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Booking amalga oshirilmadi");
     } finally {
@@ -121,53 +59,53 @@ export function BookingDetailsScreen({ navigation, route }: Props) {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
+          <Pressable onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+            <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
           </Pressable>
           <View style={styles.headerText}>
-            <Text style={styles.title}>Ma'lumotlaringiz</Text>
-            <Text style={styles.subtitle}>Deyarli tugadi</Text>
+            <Text style={[styles.title, { color: theme.colors.text }]}>Ma'lumotlaringiz</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.muted }]}>Deyarli tugadi</Text>
           </View>
         </View>
 
         {/* Booking summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Bron xulosasi</Text>
+        <View style={[styles.summaryCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.goldDim }]}>
+          <Text style={[styles.summaryLabel, { color: theme.colors.muted }]}>Bron xulosasi</Text>
           <BarberCard barber={barber} compact />
-          <View style={styles.summaryDivider} />
+          <View style={[styles.summaryDivider, { backgroundColor: theme.colors.line }]} />
           <View style={styles.summaryRow}>
-            <Ionicons name="cut-outline" size={14} color={colors.muted} />
-            <Text style={styles.summaryText}>{service.name}</Text>
-            <Text style={styles.summaryValue}>{Math.round(service.price).toLocaleString()} so'm</Text>
+            <Ionicons name="cut-outline" size={14} color={theme.colors.muted} />
+            <Text style={[styles.summaryText, { color: theme.colors.text }]}>{service.name}</Text>
+            <Text style={[styles.summaryValue, { color: theme.colors.gold }]}>{Math.round(service.price).toLocaleString()} so'm</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Ionicons name="calendar-outline" size={14} color={colors.muted} />
-            <Text style={styles.summaryText}>{formatDateLong(date)}</Text>
+            <Ionicons name="calendar-outline" size={14} color={theme.colors.muted} />
+            <Text style={[styles.summaryText, { color: theme.colors.text }]}>{formatDateLong(date)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Ionicons name="time-outline" size={14} color={colors.muted} />
-            <Text style={styles.summaryText}>{formatTime(time)}</Text>
+            <Ionicons name="time-outline" size={14} color={theme.colors.muted} />
+            <Text style={[styles.summaryText, { color: theme.colors.text }]}>{formatTime(time)}</Text>
           </View>
         </View>
 
         {/* Error */}
         {error ? (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }]}>
+            <Ionicons name="alert-circle-outline" size={14} color={theme.colors.danger} />
+            <Text style={[styles.errorText, { color: theme.colors.danger }]}>{error}</Text>
           </View>
         ) : null}
 
         {/* Form */}
         <View style={styles.form}>
-          <DarkInput
+          <LuxuryInput
             icon="person-outline"
             placeholder="To'liq ism"
             value={clientName}
             onChangeText={setClientName}
             autoCapitalize="words"
           />
-          <DarkInput
+          <LuxuryInput
             icon="call-outline"
             placeholder="+998901234567"
             value={clientPhone}
@@ -182,7 +120,7 @@ export function BookingDetailsScreen({ navigation, route }: Props) {
           onPress={submit}
           loading={loading}
           disabled={!clientName.trim() || !clientPhone.trim()}
-          icon={<Ionicons name="checkmark-circle-outline" size={20} color="#0A0A0A" />}
+          icon={<Ionicons name="checkmark-circle-outline" size={20} color={theme.colors.onGold} />}
         />
       </KeyboardAvoidingView>
     </ScreenContainer>
@@ -262,6 +200,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "#1A0000",
     borderRadius: 12,
+    borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 16,

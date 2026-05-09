@@ -1,45 +1,61 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import type { PublicStackParamList } from "../../navigation/types";
+import { useAuth } from "../../store/authStore";
+import { useTheme } from "../../theme/theme";
 import { formatDateLong, formatTime } from "../../utils/date";
 
 type Props = NativeStackScreenProps<PublicStackParamList, "BookingSuccess">;
 
 export function BookingSuccessScreen({ navigation, route }: Props) {
   const { booking, barberName } = route.params;
+  const { user } = useAuth();
+  const { theme } = useTheme();
+  const shouldReturnToCabinet = route.params.bookingSource === "customer" || user?.role === "customer";
+  const bookingCode = booking.booking_code ?? `BKG-${String(booking.id).padStart(6, "0")}`;
   const bookingDate = booking.appointment_date ?? booking.booking_date;
   const bookingTime = booking.appointment_time ?? booking.booking_time;
 
   const pulseAnim = useRef(new Animated.Value(0.9)).current;
 
-  // Entrance animation
-  useRef(() => {
+  useEffect(() => {
     Animated.spring(pulseAnim, { toValue: 1, useNativeDriver: true, bounciness: 12, speed: 8 }).start();
-  }).current?.();
+  }, [pulseAnim]);
 
   return (
-    <ScreenContainer scroll={false}>
+    <ScreenContainer>
       <View style={styles.container}>
         {/* Gold success ring */}
-        <Animated.View style={[styles.successRing, { transform: [{ scale: pulseAnim }] }]}>
-          <View style={styles.successInner}>
-            <Ionicons name="checkmark" size={40} color="#0A0A0A" />
+        <Animated.View
+          style={[
+            styles.successRing,
+            {
+              backgroundColor: theme.colors.goldSoft,
+              borderColor: theme.colors.goldDim,
+              transform: [{ scale: pulseAnim }],
+            },
+          ]}
+        >
+          <View style={[styles.successInner, { backgroundColor: theme.colors.gold }]}>
+            <Ionicons name="checkmark" size={40} color={theme.colors.onGold} />
           </View>
         </Animated.View>
 
-        <Text style={styles.title}>Bron tasdiqlandi!</Text>
-        <Text style={styles.subtitle}>Sizning uchrashuvingiz saqlandi.</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Bron tasdiqlandi!</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.muted }]}>Sizning uchrashuvingiz saqlandi.</Text>
 
         {/* Info card */}
-        <View style={styles.infoCard}>
-          <Text style={styles.codeLabel}>Bron kodi</Text>
-          <Text style={styles.code}>{booking.booking_code ?? `#${booking.id}`}</Text>
-          <View style={styles.divider} />
+        <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.goldDim }]}>
+          <Text style={[styles.codeLabel, { color: theme.colors.muted }]}>Bron kodi</Text>
+          <Text style={[styles.code, { color: theme.colors.gold }]} numberOfLines={2} adjustsFontSizeToFit>
+            {booking.booking_code ?? `#${booking.id}`}
+          </Text>
+          <View style={[styles.divider, { backgroundColor: theme.colors.line }]} />
           <InfoRow icon="person-outline" label="Barber" value={barberName} />
           <InfoRow icon="calendar-outline" label="Sana" value={formatDateLong(bookingDate)} />
           <InfoRow icon="time-outline" label="Vaqt" value={formatTime(bookingTime)} />
@@ -49,9 +65,15 @@ export function BookingSuccessScreen({ navigation, route }: Props) {
         </View>
 
         <PrimaryButton
-          title="Bosh sahifaga qaytish"
-          onPress={() => navigation.popToTop()}
-          icon={<Ionicons name="home-outline" size={18} color="#0A0A0A" />}
+          title={shouldReturnToCabinet ? "Kabinetga qaytish" : "Mening bookinglarim"}
+          onPress={() => {
+            if (shouldReturnToCabinet) {
+              navigation.navigate("CustomerCabinet");
+            } else {
+              navigation.navigate("CustomerCabinet", { bookingCode });
+            }
+          }}
+          icon={<Ionicons name="person-circle-outline" size={18} color={theme.colors.onGold} />}
           style={{ width: "100%" }}
         />
       </View>
@@ -60,22 +82,23 @@ export function BookingSuccessScreen({ navigation, route }: Props) {
 }
 
 function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  const { theme } = useTheme();
   return (
     <View style={styles.infoRow}>
-      <Ionicons name={icon} size={14} color={colors.muted} />
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={1}>{value}</Text>
+      <Ionicons name={icon} size={14} color={theme.colors.muted} />
+      <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>{label}</Text>
+      <Text style={[styles.infoValue, { color: theme.colors.text }]} numberOfLines={2}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     alignItems: "center",
-    justifyContent: "center",
-    gap: 20,
-    paddingVertical: 40,
+    justifyContent: "flex-start",
+    gap: 16,
+    paddingTop: 28,
+    paddingBottom: 24,
   },
   successRing: {
     width: 100,
@@ -139,7 +162,7 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
   },
   infoLabel: {
@@ -151,7 +174,9 @@ const styles = StyleSheet.create({
   infoValue: {
     color: colors.text,
     fontSize: 13,
+    lineHeight: 18,
     fontWeight: "700",
     flex: 1,
+    minWidth: 0,
   },
 });

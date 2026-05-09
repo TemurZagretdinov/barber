@@ -9,28 +9,17 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, TextInput, Vi
 import { type BarberSort, getPublicBarbers } from "../../api/barbers";
 import { BarberCard } from "../../components/BarberCard";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
+import { EmptyState, ErrorState, LoadingState } from "../../components/States";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import type { PublicStackParamList, RootStackParamList } from "../../navigation/types";
+import { useLocationStore } from "../../store/locationStore";
+import { useTheme } from "../../theme/theme";
 import type { Barber } from "../../types/barber";
 
 type Props = CompositeScreenProps<
   NativeStackScreenProps<PublicStackParamList, "ChooseBarber">,
   NativeStackScreenProps<RootStackParamList>
 >;
-
-type UserLocation = {
-  latitude: number;
-  longitude: number;
-};
-
-type GeoNavigator = {
-  geolocation?: {
-    getCurrentPosition: (
-      success: (position: { coords: { latitude: number; longitude: number } }) => void,
-      error: () => void,
-      options?: { enableHighAccuracy?: boolean; timeout?: number; maximumAge?: number },
-    ) => void;
-  };
-};
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -143,69 +132,43 @@ const divStyle = StyleSheet.create({
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
-export function ChooseBarberScreen({ navigation }: Props) {
+export function ChooseBarberScreen({ navigation, route }: Props) {
+  const bookingSource = route.params?.bookingSource ?? "public";
+  const { theme } = useTheme();
+  const location = useLocationStore();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [sort, setSort] = useState<BarberSort | undefined>();
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [locationMessage, setLocationMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const nearestCoordinates = sort === "nearest" ? location.coordinates : null;
 
   const load = useCallback(async () => {
-    if (sort === "nearest" && !userLocation) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError("");
+    const coordinates = nearestCoordinates;
+    const shouldUseNearest = sort === "nearest" && coordinates;
     try {
       setBarbers(await getPublicBarbers({
-        sort,
-        userLat: sort === "nearest" ? userLocation?.latitude : undefined,
-        userLng: sort === "nearest" ? userLocation?.longitude : undefined,
+        sort: shouldUseNearest ? "nearest" : sort === "nearest" ? undefined : sort,
+        userLat: shouldUseNearest ? coordinates.latitude : undefined,
+        userLng: shouldUseNearest ? coordinates.longitude : undefined,
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load barbers");
     } finally {
       setLoading(false);
     }
-  }, [sort, userLocation]);
+  }, [nearestCoordinates, sort]);
 
   useFocusEffect(useCallback(() => {
     load();
   }, [load]));
 
-  function requestLocation() {
-    const geo = (globalThis.navigator as GeoNavigator | undefined)?.geolocation;
-    if (!geo) {
-      setUserLocation(null);
-      setLocationMessage("Lokatsiya ruxsati berilmadi");
-      return;
-    }
-    setLocationMessage("Lokatsiya aniqlanmoqda...");
-    geo.getCurrentPosition(
-      (position) => {
-        setUserLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setLocationMessage("");
-      },
-      () => {
-        setUserLocation(null);
-        setLocationMessage("Lokatsiya ruxsati berilmadi");
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
-    );
-  }
-
   function selectSort(nextSort: BarberSort) {
     setSort(nextSort);
-    if (nextSort === "nearest") {
-      requestLocation();
-    } else {
-      setLocationMessage("");
+    if (nextSort === "nearest" && !location.coordinates) {
+      void location.requestLocation();
     }
   }
 
@@ -215,78 +178,116 @@ export function ChooseBarberScreen({ navigation }: Props) {
         (b.specialty || "").toLowerCase().includes(search.toLowerCase())
       )
     : barbers;
+  const activeInk = theme.colors.onGold;
+  const showLocationBadge = sort === "nearest" || Boolean(location.message) || Boolean(location.coordinates);
+  const locationText = location.coordinates
+    ? sort === "nearest"
+      ? "Eng yaqin barberlar"
+      : "Lokatsiya aniqlandi"
+    : location.loading
+      ? "Lokatsiya aniqlanmoqda..."
+      : "Lokatsiyani yoqish";
+  const locationDetail = location.coordinates
+    ? "Masofa bo'yicha saralash tayyor."
+    : location.message || "Eng yaqin barberlarni ko'rish uchun lokatsiyani yoqing.";
 
   return (
     <ScreenContainer>
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Barberlar</Text>
-          <Text style={styles.subtitle}>O'zingizga mos ustani tanlang</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Barberlar</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>O'zingizga mos ustani tanlang</Text>
         </View>
-        <Pressable onPress={() => navigation.navigate("CustomerCabinet")} style={styles.cabinetBtn}>
-          <Ionicons name="person-circle-outline" size={28} color={colors.gold} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <ThemeToggle compact />
+          <Pressable
+            onPress={() => navigation.navigate("CustomerCabinet")}
+            style={[styles.cabinetBtn, { backgroundColor: theme.colors.input, borderColor: theme.colors.goldDim }]}
+          >
+            <Ionicons name="person-circle-outline" size={28} color={theme.colors.gold} />
+          </Pressable>
+        </View>
       </View>
 
-      <GoldDivider />
+      <View style={divStyle.row}>
+        <View style={[divStyle.line, { backgroundColor: theme.colors.goldDim }]} />
+        <View style={[divStyle.dot, { backgroundColor: theme.colors.gold }]} />
+        <View style={[divStyle.line, { backgroundColor: theme.colors.goldDim }]} />
+      </View>
 
       {/* Sort Filter chips */}
       <View style={styles.filterPanel}>
         <Pressable
-          onPress={() => { setSort(undefined); setLocationMessage(""); }}
-          style={[styles.filterChip, !sort && styles.filterChipActive]}
+          onPress={() => setSort(undefined)}
+          style={[
+            styles.filterChip,
+            { backgroundColor: theme.colors.elevated, borderColor: theme.colors.line },
+            !sort && { backgroundColor: theme.colors.gold, borderColor: theme.colors.gold },
+          ]}
         >
-          <Ionicons name="grid-outline" size={14} color={!sort ? "#0A0A0A" : colors.muted} />
-          <Text style={[styles.filterText, !sort && styles.filterTextActive]}>Barchasi</Text>
+          <Ionicons name="grid-outline" size={14} color={!sort ? activeInk : theme.colors.muted} />
+          <Text style={[styles.filterText, { color: !sort ? activeInk : theme.colors.muted }]}>Barchasi</Text>
         </Pressable>
         {sortOptions.map((option) => {
           const active = sort === option.value;
           return (
-            <Pressable key={option.value} onPress={() => selectSort(option.value)} style={[styles.filterChip, active && styles.filterChipActive]}>
-              <Ionicons name={option.icon} size={14} color={active ? "#0A0A0A" : colors.muted} />
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>{option.label}</Text>
+            <Pressable
+              key={option.value}
+              onPress={() => selectSort(option.value)}
+              style={[
+                styles.filterChip,
+                { backgroundColor: theme.colors.elevated, borderColor: theme.colors.line },
+                active && { backgroundColor: theme.colors.gold, borderColor: theme.colors.gold },
+              ]}
+            >
+              <Ionicons name={option.icon} size={14} color={active ? activeInk : theme.colors.muted} />
+              <Text style={[styles.filterText, { color: active ? activeInk : theme.colors.muted }]}>{option.label}</Text>
             </Pressable>
           );
         })}
       </View>
 
       {/* Search */}
-      <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color={colors.muted} style={styles.searchIcon} />
+      <View style={[styles.searchWrap, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+        <Ionicons name="search-outline" size={18} color={theme.colors.muted} style={styles.searchIcon} />
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Usta yoki xizmatni qidiring..."
-          placeholderTextColor={colors.muted}
-          style={styles.searchInput}
+          placeholderTextColor={theme.colors.subtle}
+          style={[styles.searchInput, { color: theme.colors.text }]}
         />
         {search.length > 0 && (
           <Pressable onPress={() => setSearch("")}>
-            <Ionicons name="close-circle" size={18} color={colors.muted} />
+            <Ionicons name="close-circle" size={18} color={theme.colors.muted} />
           </Pressable>
         )}
       </View>
 
-      {locationMessage ? (
-        <View style={styles.locationMsg}>
-          <Ionicons name="location-outline" size={14} color={colors.gold} />
-          <Text style={styles.locationText}>{locationMessage}</Text>
+      {showLocationBadge ? (
+        <View style={[styles.locationMsg, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
+          <Ionicons name={location.coordinates ? "navigate-circle-outline" : "location-outline"} size={17} color={theme.colors.gold} />
+          <View style={styles.locationCopy}>
+            <Text style={[styles.locationText, { color: theme.colors.gold }]}>{locationText}</Text>
+            <Text style={[styles.locationSubtext, { color: theme.colors.muted }]} numberOfLines={2}>{locationDetail}</Text>
+          </View>
+          {!location.coordinates ? (
+            <Pressable onPress={location.refreshLocation} disabled={location.loading} style={[styles.locationAction, { borderColor: theme.colors.goldDim }]}>
+              {location.loading ? (
+                <ActivityIndicator color={theme.colors.gold} size="small" />
+              ) : (
+                <Text style={[styles.locationActionText, { color: theme.colors.gold }]}>Yoqish</Text>
+              )}
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
-      {loading ? <ActivityIndicator style={styles.state} color={colors.gold} /> : null}
-      {error ? (
-        <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
+      {loading ? <LoadingState label="Barberlar yuklanmoqda..." /> : null}
+      {error ? <ErrorState message={error} onRetry={load} /> : null}
       {!loading && !error && filtered.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Ionicons name="cut-outline" size={36} color={colors.muted} />
-          <Text style={styles.emptyText}>Barber topilmadi</Text>
-        </View>
+        <EmptyState icon="cut-outline" title="Barber topilmadi" message="Qidiruvni o'zgartiring yoki barcha barberlarni ko'ring." actionLabel="Barchasi" onAction={() => { setSearch(""); setSort(undefined); }} />
       ) : null}
 
       <View style={styles.list}>
@@ -294,7 +295,7 @@ export function ChooseBarberScreen({ navigation }: Props) {
           <BarberCard
             key={barber.id}
             barber={barber}
-            onSelect={() => navigation.navigate("SelectService", { barberId: barber.id, barber })}
+            onSelect={() => navigation.navigate("SelectService", { barberId: barber.id, barber, bookingSource })}
           />
         ))}
       </View>
@@ -302,18 +303,18 @@ export function ChooseBarberScreen({ navigation }: Props) {
       {/* Footer links */}
       <View style={styles.footerLinks}>
         <Pressable onPress={() => navigation.navigate("Login", { role: "barber" })} style={styles.footerLink}>
-          <Ionicons name="cut-outline" size={14} color={colors.muted} />
-          <Text style={styles.footerLinkText}>Barber Login</Text>
+          <Ionicons name="cut-outline" size={14} color={theme.colors.muted} />
+          <Text style={[styles.footerLinkText, { color: theme.colors.muted }]}>Barber Login</Text>
         </Pressable>
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: theme.colors.line }]} />
         <Pressable onPress={() => navigation.navigate("Login", { role: "admin" })} style={styles.footerLink}>
-          <Ionicons name="shield-checkmark-outline" size={14} color={colors.muted} />
-          <Text style={styles.footerLinkText}>Admin</Text>
+          <Ionicons name="shield-checkmark-outline" size={14} color={theme.colors.muted} />
+          <Text style={[styles.footerLinkText, { color: theme.colors.muted }]}>Admin</Text>
         </Pressable>
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: theme.colors.line }]} />
         <Pressable onPress={() => navigation.navigate("Public", { screen: "FindBooking" })} style={styles.footerLink}>
-          <Ionicons name="search-outline" size={14} color={colors.muted} />
-          <Text style={styles.footerLinkText}>Bron qidirish</Text>
+          <Ionicons name="search-outline" size={14} color={theme.colors.muted} />
+          <Text style={[styles.footerLinkText, { color: theme.colors.muted }]}>Bron qidirish</Text>
         </Pressable>
       </View>
     </ScreenContainer>
@@ -336,6 +337,12 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
   },
   title: {
     color: colors.text,
@@ -417,7 +424,30 @@ const styles = StyleSheet.create({
   locationText: {
     color: colors.gold,
     fontSize: 13,
+    fontWeight: "800",
+  },
+  locationCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  locationSubtext: {
+    marginTop: 2,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: "600",
+  },
+  locationAction: {
+    minWidth: 62,
+    minHeight: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  locationActionText: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   errorBox: {
     flexDirection: "row",

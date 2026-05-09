@@ -2,19 +2,21 @@ import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getPublicBarberServices } from "../../api/barbers";
 import { BarberCard } from "../../components/BarberCard";
-import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
+import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import type { PublicStackParamList } from "../../navigation/types";
+import { useTheme } from "../../theme/theme";
 import type { BarberService } from "../../types/barber";
 
 type Props = NativeStackScreenProps<PublicStackParamList, "SelectService">;
 
 export function SelectServiceScreen({ navigation, route }: Props) {
-  const { barber, barberId } = route.params;
+  const { barber, barberId, bookingSource } = route.params;
+  const { theme } = useTheme();
   const [services, setServices] = useState<BarberService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -37,12 +39,12 @@ export function SelectServiceScreen({ navigation, route }: Props) {
     <ScreenContainer>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
+        <Pressable onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+          <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
         </Pressable>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Xizmat tanlash</Text>
-          <Text style={styles.subtitle}>Narx va davomiylik</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Xizmat tanlash</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>Narx va davomiylik</Text>
         </View>
       </View>
 
@@ -50,49 +52,40 @@ export function SelectServiceScreen({ navigation, route }: Props) {
       <BarberCard barber={barber} compact />
 
       {/* Divider */}
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: theme.colors.line }]} />
 
       {/* Section label */}
-      <Text style={styles.sectionLabel}>Mavjud xizmatlar</Text>
+      <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>Mavjud xizmatlar</Text>
 
-      {loading ? <ActivityIndicator style={{ marginTop: 24 }} color={colors.gold} /> : null}
-      {error ? (
-        <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
+      {loading ? <LoadingState label="Xizmatlar yuklanmoqda..." /> : null}
+      {error ? <ErrorState message={error} onRetry={load} /> : null}
 
       <View style={styles.list}>
         {services.map((service) => (
           <Pressable
             key={service.id}
-            style={styles.serviceCard}
-            onPress={() => navigation.navigate("SelectTime", { barberId, barber, service })}
+            style={[styles.serviceCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}
+            onPress={() => navigation.navigate("SelectTime", { barberId, barber, service, bookingSource })}
           >
-            <View style={styles.icon}>
-              <Ionicons name="cut-outline" size={20} color="#0A0A0A" />
+            <View style={[styles.icon, { backgroundColor: theme.colors.gold }]}>
+              <Ionicons name="cut-outline" size={20} color={theme.colors.onGold} />
             </View>
             <View style={styles.serviceBody}>
-              <Text style={styles.serviceName}>{service.name}</Text>
+              <Text style={[styles.serviceName, { color: theme.colors.text }]}>{service.name}</Text>
               {service.description ? (
-                <Text style={styles.serviceDesc} numberOfLines={2}>{service.description}</Text>
+                <Text style={[styles.serviceDesc, { color: theme.colors.muted }]} numberOfLines={2}>{service.description}</Text>
               ) : null}
-              <Text style={styles.serviceMeta}>
+              <Text style={[styles.serviceMeta, { color: theme.colors.gold }]}>
                 {Math.round(service.price).toLocaleString("uz-UZ")} so'm · {service.duration_minutes} min
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
           </Pressable>
         ))}
       </View>
 
       {!loading && services.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Ionicons name="cut-outline" size={36} color={colors.muted} />
-          <Text style={styles.emptyText}>Xizmatlar mavjud emas</Text>
-          <PrimaryButton title="Ortga" onPress={() => navigation.goBack()} variant="ghost" style={{ marginTop: 8 }} />
-        </View>
+        <EmptyState icon="cut-outline" title="Xizmatlar mavjud emas" actionLabel="Ortga" onAction={() => navigation.goBack()} />
       ) : null}
     </ScreenContainer>
   );

@@ -1,10 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
-import { TOKEN_STORAGE_KEY } from "../api/client";
+import { clearStoredSession, setUnauthorizedHandler, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from "../api/client";
 import type { LoginResponse, Role, User } from "../types/auth";
-
-const USER_STORAGE_KEY = "sharp-cuts-mobile-user";
 
 interface AuthContextValue {
   loading: boolean;
@@ -35,6 +33,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     restore().catch(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    setUnauthorizedHandler(async () => {
+      await clearStoredSession();
+      setToken(null);
+      setUser(null);
+    });
+
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       loading,
@@ -50,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session.user);
       },
       signOut: async () => {
-        await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_STORAGE_KEY]);
+        await clearStoredSession();
         setToken(null);
         setUser(null);
       },

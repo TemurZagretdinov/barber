@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { useTheme } from "../theme/theme";
 import type { BookingStatus } from "../types/booking";
 
 // Dark-theme luxury status palette
@@ -18,7 +19,18 @@ const statusLabel: Record<BookingStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: BookingStatus }) {
-  const palette = statusStyle[status] ?? statusStyle.pending;
+  const { theme } = useTheme();
+  const fallbackPalette = statusStyle[status] ?? statusStyle.pending;
+  const palette =
+    status === "completed"
+      ? { bg: theme.colors.successBg, text: theme.colors.success, border: theme.colors.successLine }
+      : status === "pending"
+        ? { bg: theme.colors.warningBg, text: theme.colors.warning, border: theme.colors.warningLine }
+        : status === "no_show"
+          ? { bg: theme.colors.warningBg, text: theme.colors.orange, border: theme.colors.warningLine }
+          : status === "cancelled"
+            ? { bg: theme.colors.dangerBg, text: theme.colors.danger, border: theme.colors.dangerLine }
+            : fallbackPalette;
   return (
     <View style={[styles.badge, { backgroundColor: palette.bg, borderColor: palette.border }]}>
       <Text style={[styles.text, { color: palette.text }]}>

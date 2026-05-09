@@ -66,6 +66,13 @@ export async function getCustomerBookingHistory(): Promise<BookingWithBarber[]> 
   return response.data;
 }
 
+export async function claimCustomerBooking(bookingCode: string): Promise<BookingWithBarber> {
+  const response = await apiClient.post<BookingWithBarber>("/customer/bookings/claim", {
+    booking_code: bookingCode,
+  });
+  return response.data;
+}
+
 export async function cancelCustomerBooking(id: number): Promise<BookingWithBarber> {
   const response = await apiClient.patch<BookingWithBarber>(`/customer/bookings/${id}/cancel`);
   return response.data;

@@ -9,6 +9,7 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { BarberStackParamList } from "../../navigation/types";
+import { useTheme } from "../../theme/theme";
 import type { BookingStatus, BookingWithBarber } from "../../types/booking";
 import { addDays, formatDateLong, formatTime, todayISO } from "../../utils/date";
 
@@ -28,6 +29,7 @@ type ActionKind = "complete" | "no_show" | "cancel";
 type Props = NativeStackScreenProps<BarberStackParamList, "BarberSchedule">;
 
 export function BarberScheduleScreen({ navigation }: Props) {
+  const { theme } = useTheme();
   const [date, setDate] = useState(todayISO());
   const [filter, setFilter] = useState<(typeof filters)[number]>("all");
   const [bookings, setBookings] = useState<BookingWithBarber[]>([]);
@@ -35,6 +37,8 @@ export function BarberScheduleScreen({ navigation }: Props) {
   const [error, setError] = useState("");
   const [action, setAction] = useState<{ kind: ActionKind; booking: BookingWithBarber } | null>(null);
   const [note, setNote] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,39 +59,47 @@ export function BarberScheduleScreen({ navigation }: Props) {
   );
 
   async function confirmAction() {
-    if (!action) return;
-    if (action.kind === "complete") await completeBarberBookingWithNote(action.booking.id, note);
-    if (action.kind === "no_show") await noShowBarberBooking(action.booking.id, note);
-    if (action.kind === "cancel") await cancelBarberBooking(action.booking.id, note);
-    setAction(null);
-    setNote("");
-    await load();
+    if (!action || actionLoading) return;
+    setActionLoading(true);
+    setActionError("");
+    try {
+      if (action.kind === "complete") await completeBarberBookingWithNote(action.booking.id, note);
+      if (action.kind === "no_show") await noShowBarberBooking(action.booking.id, note);
+      if (action.kind === "cancel") await cancelBarberBooking(action.booking.id, note);
+      setAction(null);
+      setNote("");
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Amalni bajarib bo'lmadi. Qayta urinib ko'ring.");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   return (
     <ScreenContainer>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.roundButton}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
+        <Pressable onPress={() => navigation.goBack()} style={[styles.roundButton, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+          <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
         </Pressable>
         <View>
-          <Text style={styles.title}>Kunlik jadval</Text>
-          <Text style={styles.subtitle}>Barcha uchrashuvlar</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Kunlik jadval</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>Barcha uchrashuvlar</Text>
         </View>
       </View>
 
       {/* Date navigation */}
-      <View style={styles.dateNav}>
-        <Pressable onPress={() => setDate(addDays(date, -1))} style={styles.roundButton}>
-          <Ionicons name="chevron-back" size={20} color={colors.text} />
+      <View style={[styles.dateNav, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
+        <Pressable onPress={() => setDate(addDays(date, -1))} style={[styles.roundButton, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+          <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
         </Pressable>
         <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={styles.dateText}>{formatDateLong(date)}</Text>
-          <Text style={styles.dateISO}>{date}</Text>
+          <Text style={[styles.dateText, { color: theme.colors.text }]}>{formatDateLong(date)}</Text>
+          <Text style={[styles.dateISO, { color: theme.colors.muted }]}>{date}</Text>
         </View>
-        <Pressable onPress={() => setDate(addDays(date, 1))} style={styles.roundButton}>
-          <Ionicons name="chevron-forward" size={20} color={colors.text} />
+        <Pressable onPress={() => setDate(addDays(date, 1))} style={[styles.roundButton, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.text} />
         </Pressable>
       </View>
 
@@ -97,63 +109,67 @@ export function BarberScheduleScreen({ navigation }: Props) {
           <Pressable
             key={item}
             onPress={() => setFilter(item)}
-            style={[styles.filterChip, filter === item && styles.filterChipActive]}
+            style={[
+              styles.filterChip,
+              { backgroundColor: theme.colors.elevated, borderColor: theme.colors.line },
+              filter === item && { backgroundColor: theme.colors.gold, borderColor: theme.colors.gold },
+            ]}
           >
-            <Text style={[styles.filterText, filter === item && styles.filterTextActive]}>
+            <Text style={[styles.filterText, { color: filter === item ? theme.colors.onGold : theme.colors.muted }]}>
               {filterLabels[item]}
             </Text>
           </Pressable>
         ))}
       </View>
 
-      {loading ? <ActivityIndicator color={GOLD} style={{ marginVertical: 20 }} /> : null}
+      {loading ? <ActivityIndicator color={theme.colors.gold} style={{ marginVertical: 20 }} /> : null}
       {error ? (
-        <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }]}>
+          <Ionicons name="alert-circle-outline" size={14} color={theme.colors.danger} />
+          <Text style={[styles.errorText, { color: theme.colors.danger }]}>{error}</Text>
         </View>
       ) : null}
       {!loading && bookings.length === 0 ? (
         <View style={styles.emptyBox}>
-          <Ionicons name="calendar-outline" size={36} color={colors.muted} />
-          <Text style={styles.emptyText}>Bu kunda uchrashuvlar yo'q</Text>
+          <Ionicons name="calendar-outline" size={36} color={theme.colors.muted} />
+          <Text style={[styles.emptyText, { color: theme.colors.muted }]}>Bu kunda uchrashuvlar yo'q</Text>
         </View>
       ) : null}
 
       {/* Bookings */}
       <View style={styles.list}>
         {bookings.map((booking) => (
-          <View key={booking.id} style={styles.bookingCard}>
+          <View key={booking.id} style={[styles.bookingCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
             <View style={styles.bookingRow}>
-              <View style={styles.timeTag}>
-                <Text style={styles.timeTagText}>{formatTime(booking.booking_time)}</Text>
+              <View style={[styles.timeTag, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
+                <Text style={[styles.timeTagText, { color: theme.colors.gold }]}>{formatTime(booking.booking_time)}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.clientName}>{booking.client_name}</Text>
-                <Text style={styles.clientPhone}>{booking.client_phone}</Text>
+                <Text style={[styles.clientName, { color: theme.colors.text }]}>{booking.client_name}</Text>
+                <Text style={[styles.clientPhone, { color: theme.colors.muted }]}>{booking.client_phone}</Text>
               </View>
               <StatusBadge status={booking.status as BookingStatus} />
             </View>
             {booking.service_note ? (
-              <Text style={styles.serviceNote}>{booking.service_note}</Text>
+              <Text style={[styles.serviceNote, { backgroundColor: theme.colors.elevated, color: theme.colors.muted }]}>{booking.service_note}</Text>
             ) : null}
             {booking.status === "pending" ? (
               <View style={styles.actionsRow}>
                 <PrimaryButton
                   title="Tugallash"
-                  onPress={() => setAction({ kind: "complete", booking })}
-                  icon={<Ionicons name="checkmark-circle" size={16} color="#0A0A0A" />}
+                  onPress={() => { setActionError(""); setAction({ kind: "complete", booking }); }}
+                  icon={<Ionicons name="checkmark-circle" size={16} color={theme.colors.onGold} />}
                   style={styles.actionBtn}
                 />
                 <PrimaryButton
                   title="Kelmadi"
-                  onPress={() => setAction({ kind: "no_show", booking })}
+                  onPress={() => { setActionError(""); setAction({ kind: "no_show", booking }); }}
                   variant="ghost"
                   style={styles.actionBtn}
                 />
                 <PrimaryButton
                   title="Bekor"
-                  onPress={() => setAction({ kind: "cancel", booking })}
+                  onPress={() => { setActionError(""); setAction({ kind: "cancel", booking }); }}
                   variant="ghost"
                   style={styles.actionBtn}
                 />
@@ -165,9 +181,9 @@ export function BarberScheduleScreen({ navigation }: Props) {
 
       {/* Action modal */}
       <Modal transparent visible={!!action} animationType="fade" onRequestClose={() => setAction(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <View style={[styles.modalCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.goldDim }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
               {action?.kind === "complete"
                 ? "Tugallanganligini tasdiqlash"
                 : action?.kind === "no_show"
@@ -178,13 +194,26 @@ export function BarberScheduleScreen({ navigation }: Props) {
               value={note}
               onChangeText={setNote}
               placeholder={action?.kind === "complete" ? "Xizmat izohi (ixtiyoriy)" : "Izoh (ixtiyoriy)"}
-              placeholderTextColor="#555555"
+              placeholderTextColor={theme.colors.subtle}
               multiline
-              style={styles.noteInput}
+              style={[styles.noteInput, { backgroundColor: theme.colors.input, borderColor: theme.colors.line, color: theme.colors.text }]}
+              editable={!actionLoading}
             />
+            {actionError ? (
+              <View style={[styles.modalError, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }]}>
+                <Ionicons name="alert-circle-outline" size={15} color={theme.colors.danger} />
+                <Text style={[styles.modalErrorText, { color: theme.colors.danger }]}>{actionError}</Text>
+              </View>
+            ) : null}
             <View style={styles.actionsRow}>
-              <PrimaryButton title="Bekor" onPress={() => setAction(null)} variant="ghost" style={styles.actionBtn} />
-              <PrimaryButton title="Tasdiqlash" onPress={confirmAction} style={styles.actionBtn} />
+              <PrimaryButton
+                title="Bekor"
+                onPress={() => { setAction(null); setActionError(""); }}
+                variant="ghost"
+                disabled={actionLoading}
+                style={styles.actionBtn}
+              />
+              <PrimaryButton title="Tasdiqlash" onPress={confirmAction} loading={actionLoading} disabled={actionLoading} style={styles.actionBtn} />
             </View>
           </View>
         </View>
@@ -336,6 +365,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "#1A0000",
     borderRadius: 12,
+    borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginTop: 8,
@@ -386,5 +416,20 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     backgroundColor: "#1C1C1C",
     fontSize: 14,
+  },
+  modalError: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  modalErrorText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
   },
 });

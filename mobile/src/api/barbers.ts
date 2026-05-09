@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import { ApiError } from "./client";
 import type { AvailableSlot, Barber, BarberFormPayload, BarberService } from "../types/barber";
 
 const fallbackImage = "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=300&q=80";
@@ -13,9 +14,11 @@ type RawSlot =
   | {
       time?: string | null;
       start_time?: string | null;
+      available?: boolean | null;
       is_available?: boolean | null;
       is_booked?: boolean | null;
       is_expired?: boolean | null;
+      reason?: string | null;
     };
 
 export type BarberSort = "nearest" | "cheapest" | "expensive";
@@ -94,11 +97,17 @@ function normalizeSlot(slot: RawSlot): AvailableSlot {
 
   const time = slot.time || slot.start_time || "";
 
+  const isBooked = slot.is_booked ?? (slot.reason === "booked");
+  const isExpired = slot.is_expired ?? (slot.reason === "expired");
+  const isAvailable = slot.is_available ?? slot.available ?? !(isBooked || isExpired);
+
   return {
     time: time.slice(0, 5),
-    is_available: slot.is_available ?? true,
-    is_booked: slot.is_booked ?? false,
-    is_expired: slot.is_expired ?? false,
+    is_available: isAvailable,
+    is_booked: isBooked,
+    is_expired: isExpired,
+    available: slot.available ?? isAvailable,
+    reason: slot.reason ?? null,
   };
 }
 
@@ -122,10 +131,20 @@ export async function getPublicBarberServices(barberId: number): Promise<BarberS
 }
 
 export async function getAvailableSlots(barberId: number, date: string, serviceId?: number): Promise<AvailableSlot[]> {
-  const response = await apiClient.get<unknown>(`/public/barbers/${barberId}/availability`, {
-    params: { date, service_id: serviceId },
-  });
-  return asList<RawSlot>(response.data).map(normalizeSlot).filter((slot) => slot.time);
+  const params = { date, service_id: serviceId };
+  try {
+    const response = await apiClient.get<unknown>(`/public/barbers/${barberId}/available-slots`, {
+      params,
+      silentStatuses: [404],
+    });
+    return asList<RawSlot>(response.data).map(normalizeSlot).filter((slot) => slot.time);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) {
+      throw error;
+    }
+    const response = await apiClient.get<unknown>(`/public/barbers/${barberId}/availability`, { params });
+    return asList<RawSlot>(response.data).map(normalizeSlot).filter((slot) => slot.time);
+  }
 }
 
 export async function getAdminBarbers(): Promise<Barber[]> {

@@ -7,6 +7,7 @@ export interface BookingDraft {
   serviceId: number;
   date: string;
   time: string;
+  bookingSource?: "public" | "customer";
 }
 
 export async function saveBookingDraft(draft: BookingDraft): Promise<void> {

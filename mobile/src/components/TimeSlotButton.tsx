@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 
-import { colors } from "./ScreenContainer";
+import { useTheme } from "../theme/theme";
 import type { AvailableSlot } from "../types/barber";
 
 export function TimeSlotButton({
@@ -12,30 +12,29 @@ export function TimeSlotButton({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { theme } = useTheme();
+  const disabled = !slot.is_available || slot.is_booked || slot.is_expired;
+  const stateStyle = selected
+    ? { backgroundColor: theme.colors.gold, borderColor: theme.colors.gold }
+    : disabled
+      ? slot.is_expired
+        ? { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine, opacity: 0.72 }
+        : { backgroundColor: theme.colors.card, borderColor: theme.colors.line, opacity: 0.55 }
+      : { backgroundColor: theme.colors.elevated, borderColor: theme.colors.line };
+
   return (
     <Pressable
-      disabled={!slot.is_available}
+      disabled={disabled}
       onPress={onPress}
-      style={[
-        styles.button,
-        selected
-          ? styles.selected
-          : slot.is_available
-            ? styles.available
-            : slot.is_expired
-              ? styles.expired
-              : styles.disabled,
-      ]}
+      style={[styles.button, stateStyle, selected && theme.shadows]}
     >
       <Text
         style={[
           styles.text,
-          selected
-            ? styles.selectedText
-            : slot.is_available
-              ? styles.availableText
-              : styles.disabledText,
+          { color: selected ? theme.colors.onGold : disabled ? theme.colors.subtle : theme.colors.text },
         ]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
       >
         {slot.time}
       </Text>
@@ -53,41 +52,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
   },
-  selected: {
-    backgroundColor: colors.gold,
-    borderColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  available: {
-    backgroundColor: "#1C1C1C",
-    borderColor: "#2A2A2A",
-  },
-  disabled: {
-    backgroundColor: "#141414",
-    borderColor: "#1E1E1E",
-    opacity: 0.5,
-  },
-  expired: {
-    backgroundColor: "#1A0000",
-    borderColor: "#2A1515",
-    opacity: 0.6,
-  },
   text: {
     fontWeight: "700",
     fontSize: 14,
     letterSpacing: 0.3,
-  },
-  selectedText: {
-    color: "#0A0A0A",
-    fontWeight: "800",
-  },
-  availableText: {
-    color: "#FFFFFF",
-  },
-  disabledText: {
-    color: "#444444",
   },
 });

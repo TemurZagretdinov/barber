@@ -1,7 +1,7 @@
 import { ReactNode, useRef } from "react";
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
 
-import { colors } from "./ScreenContainer";
+import { useTheme } from "../theme/theme";
 
 export function PrimaryButton({
   title,
@@ -9,6 +9,7 @@ export function PrimaryButton({
   disabled = false,
   loading = false,
   variant = "primary",
+  size = "md",
   style,
   icon,
 }: {
@@ -17,48 +18,55 @@ export function PrimaryButton({
   disabled?: boolean;
   loading?: boolean;
   variant?: "primary" | "ghost";
-  style?: ViewStyle;
+  size?: "sm" | "md" | "lg";
+  style?: StyleProp<ViewStyle>;
   icon?: ReactNode;
 }) {
+  const { theme } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const isGhost = variant === "ghost";
+  const sizeToken = theme.buttonSizes[size];
 
   function pressIn() {
     Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 60 }).start();
   }
+
   function pressOut() {
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 60 }).start();
   }
 
+  const inactive = disabled || loading;
+  const containerStyle = getContainerLayoutStyle(style);
+
   return (
-    <Pressable
-      disabled={disabled || loading}
-      onPress={onPress}
-      onPressIn={pressIn}
-      onPressOut={pressOut}
-    >
+    <Pressable disabled={inactive} onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={containerStyle}>
       <Animated.View
         style={[
           styles.button,
-          isGhost ? styles.ghost : styles.primary,
-          (disabled || loading) && styles.disabled,
-          { transform: [{ scale }] },
+          {
+            minHeight: sizeToken.minHeight,
+            paddingHorizontal: sizeToken.paddingHorizontal,
+            borderRadius: sizeToken.borderRadius,
+            backgroundColor: isGhost ? theme.colors.elevated : theme.colors.gold,
+            borderColor: isGhost ? theme.colors.goldDim : theme.colors.gold,
+            opacity: inactive ? 0.55 : 1,
+            transform: [{ scale }],
+          },
+          !isGhost && theme.shadows,
           style,
         ]}
       >
-        {loading ? (
-          <ActivityIndicator color={isGhost ? colors.gold : "#0A0A0A"} />
-        ) : icon ? (
-          icon
-        ) : null}
+        {loading ? <ActivityIndicator color={isGhost ? theme.colors.gold : theme.colors.onGold} /> : icon ?? null}
         {title ? (
           <Text
             style={[
               styles.text,
-              isGhost ? styles.ghostText : styles.primaryText,
-              (disabled || loading) && styles.disabledText,
+              {
+                color: isGhost ? theme.colors.text : theme.colors.onGold,
+                fontSize: size === "sm" ? 13 : 16,
+              },
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
             adjustsFontSizeToFit
           >
             {title}
@@ -69,42 +77,46 @@ export function PrimaryButton({
   );
 }
 
+export function SecondaryButton(props: Omit<Parameters<typeof PrimaryButton>[0], "variant">) {
+  return <PrimaryButton {...props} variant="ghost" />;
+}
+
+function getContainerLayoutStyle(style?: StyleProp<ViewStyle>): StyleProp<ViewStyle> {
+  const flat = StyleSheet.flatten(style);
+  if (!flat) {
+    return undefined;
+  }
+
+  return {
+    width: flat.width,
+    minWidth: flat.minWidth,
+    maxWidth: flat.maxWidth,
+    flex: flat.flex,
+    flexGrow: flat.flexGrow,
+    flexShrink: flat.flexShrink,
+    alignSelf: flat.alignSelf,
+    margin: flat.margin,
+    marginBottom: flat.marginBottom,
+    marginEnd: flat.marginEnd,
+    marginHorizontal: flat.marginHorizontal,
+    marginLeft: flat.marginLeft,
+    marginRight: flat.marginRight,
+    marginStart: flat.marginStart,
+    marginTop: flat.marginTop,
+    marginVertical: flat.marginVertical,
+  };
+}
+
 const styles = StyleSheet.create({
   button: {
-    minHeight: 54,
-    borderRadius: 14,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 8,
-    paddingHorizontal: 18,
-  },
-  primary: {
-    backgroundColor: colors.gold,
-  },
-  ghost: {
-    backgroundColor: "#1C1C1C",
-    borderWidth: 1.5,
-    borderColor: colors.goldDim,
   },
   text: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "800",
     textAlign: "center",
-    letterSpacing: 0.3,
-  },
-  primaryText: {
-    color: "#0A0A0A",
-  },
-  ghostText: {
-    color: "#FFFFFF",
-  },
-  disabled: {
-    backgroundColor: "#1E1E1E",
-    borderColor: "#2A2A2A",
-    opacity: 0.5,
-  },
-  disabledText: {
-    color: "#555555",
   },
 });

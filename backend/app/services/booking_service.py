@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta
+﻿from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -11,7 +11,7 @@ from app.models.barber_time_off import BarberDayOff, BarberVacation
 from app.models.blocked_slot import BlockedSlot
 from app.models.booking import Booking
 from app.models.working_hour import WorkingHour
-from app.schemas.barber import AvailableSlot
+from app.schemas.barber import AvailableSlot, AvailableSlotsResponse
 from app.schemas.booking import BookingCreate
 
 
@@ -22,13 +22,14 @@ DEFAULT_END = time(18, 0)
 APP_TIMEZONE = ZoneInfo("Asia/Tashkent")
 
 
-def _time_range(start: time, end: time, minutes: int = 10) -> list[time]:
+def _time_range(start: time, end: time, minutes: int) -> list[time]:
     cursor = datetime.combine(date.today(), start)
     limit = datetime.combine(date.today(), end)
+    step = max(minutes, 10)
     slots: list[time] = []
     while cursor < limit:
         slots.append(cursor.time())
-        cursor += timedelta(minutes=minutes)
+        cursor += timedelta(minutes=step)
     return slots
 
 
@@ -64,7 +65,7 @@ def ensure_not_past_slot(booking_date: date, booking_time: time) -> None:
     if is_past_slot(booking_date, booking_time):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="O‘tib ketgan vaqtga buyurtma berib bo‘lmaydi",
+            detail="O'tib ketgan vaqtga booking qilib bo'lmaydi",
         )
 
 
@@ -169,24 +170,69 @@ def get_available_slots(
     end_time = working_hour.end_time if working_hour else barber.work_end_time or DEFAULT_END
 
     slots: list[AvailableSlot] = []
-    for slot in _time_range(start_time, end_time):
+    for slot in _time_range(start_time, end_time, duration_minutes):
         if _add_minutes(booking_date, slot, duration_minutes).time() > end_time:
             continue
-        is_booked = (
-            _is_blocked_start(db, barber_id, booking_date, slot)
-            or _slot_overlaps_break(booking_date, slot, duration_minutes, working_hour)
-            or _slot_overlaps_bookings(db, barber_id, booking_date, slot, duration_minutes)
-        )
+        reason = None
+        if _is_blocked_start(db, barber_id, booking_date, slot):
+            reason = "blocked"
+        elif _slot_overlaps_break(booking_date, slot, duration_minutes, working_hour):
+            reason = "break"
+        elif _slot_overlaps_bookings(db, barber_id, booking_date, slot, duration_minutes):
+            reason = "booked"
         is_expired = is_past_slot(booking_date, slot)
+        if is_expired:
+            reason = "expired"
+        is_booked = reason in {"blocked", "break", "booked"}
+        is_available = reason is None
         slots.append(
             AvailableSlot(
                 time=slot.strftime("%H:%M"),
-                is_available=not is_booked and not is_expired,
+                is_available=is_available,
+                available=is_available,
                 is_booked=is_booked,
                 is_expired=is_expired,
+                reason=reason,
             )
         )
     return slots
+
+
+def get_available_slots_response(
+    db: Session,
+    barber_id: int,
+    booking_date: date,
+    service_id: int | None = None,
+) -> AvailableSlotsResponse:
+    duration_minutes = 30
+    if service_id is not None:
+        duration_minutes = get_service_or_404(db, barber_id, service_id).duration_minutes
+    return AvailableSlotsResponse(
+        date=booking_date,
+        barber_id=barber_id,
+        service_id=service_id,
+        duration_minutes=duration_minutes,
+        slots=get_available_slots(db, barber_id, booking_date, service_id),
+    )
+
+
+def _working_context(db: Session, barber: Barber, booking_date: date) -> tuple[WorkingHour | None, time, time]:
+    if _is_barber_time_off(db, barber.id, booking_date):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu vaqt ish jadvalidan tashqarida")
+    weekday_name = WEEKDAY_NAMES[booking_date.weekday()]
+    if weekday_name in (barber.off_days or []):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu vaqt ish jadvalidan tashqarida")
+    working_hour = db.scalar(
+        select(WorkingHour).where(
+            WorkingHour.barber_id == barber.id,
+            WorkingHour.weekday == booking_date.weekday(),
+        )
+    )
+    if working_hour and not working_hour.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu vaqt ish jadvalidan tashqarida")
+    start_time = working_hour.start_time if working_hour else barber.work_start_time or DEFAULT_START
+    end_time = working_hour.end_time if working_hour else barber.work_end_time or DEFAULT_END
+    return working_hour, start_time, end_time
 
 
 def ensure_slot_available(
@@ -198,18 +244,28 @@ def ensure_slot_available(
     booking_time: time,
     exclude_booking_id: int | None = None,
 ) -> BarberService:
-    get_barber_or_404(db, barber_id)
+    barber = get_barber_or_404(db, barber_id)
     service = get_service_or_404(db, barber_id, service_id)
     ensure_not_past_slot(booking_date, booking_time)
-    if _is_barber_time_off(db, barber_id, booking_date):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Barber bu kunda ishlamaydi")
-    available_slots = get_available_slots(db, barber_id, booking_date, service_id)
-    requested = booking_time.strftime("%H:%M")
-    slot = next((item for item in available_slots if item.time == requested), None)
-    if not slot or not slot.is_available:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected slot is not available")
+
+    working_hour, start_time, end_time = _working_context(db, barber, booking_date)
+    requested_start = _combine(booking_date, booking_time)
+    requested_end = _add_minutes(booking_date, booking_time, service.duration_minutes)
+    if requested_start < _combine(booking_date, start_time) or requested_end > _combine(booking_date, end_time):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu vaqt ish jadvalidan tashqarida")
+    valid_slot_times = {
+        slot
+        for slot in _time_range(start_time, end_time, service.duration_minutes)
+        if _add_minutes(booking_date, slot, service.duration_minutes) <= _combine(booking_date, end_time)
+    }
+    if booking_time.replace(second=0, microsecond=0) not in valid_slot_times:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu vaqt ish jadvalidan tashqarida")
+    if _is_blocked_start(db, barber_id, booking_date, booking_time) or _slot_overlaps_break(
+        booking_date, booking_time, service.duration_minutes, working_hour
+    ):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu vaqt ish jadvalidan tashqarida")
     if _slot_overlaps_bookings(db, barber_id, booking_date, booking_time, service.duration_minutes, exclude_booking_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This slot overlaps another booking")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu vaqt band qilingan")
     return service
 
 

@@ -71,6 +71,16 @@ class AvailableSlot(BaseModel):
     is_available: bool
     is_booked: bool = False
     is_expired: bool = False
+    available: bool | None = None
+    reason: str | None = None
+
+
+class AvailableSlotsResponse(BaseModel):
+    date: date
+    barber_id: int
+    service_id: int | None = None
+    duration_minutes: int
+    slots: list[AvailableSlot]
 
 
 class BarberServiceBase(BaseModel):

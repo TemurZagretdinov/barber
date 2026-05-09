@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { PrimaryButton } from "./PrimaryButton";
-import { colors } from "./ScreenContainer";
+import { useTheme } from "../theme/theme";
 import type { Barber } from "../types/barber";
 
 const fallbackImage = "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=300&q=80";
@@ -27,6 +27,14 @@ function barberPrice(barber: Barber): string | null {
   return typeof barber.price_from === "number" ? `${barber.price_from.toLocaleString()} so'm` : null;
 }
 
+function barberDistance(barber: Barber): string | null {
+  if (typeof barber.distance_km !== "number") {
+    return null;
+  }
+
+  return `${barber.distance_km.toFixed(barber.distance_km < 10 ? 1 : 0)} km uzoqlikda`;
+}
+
 export function BarberCard({
   barber,
   onSelect,
@@ -36,6 +44,7 @@ export function BarberCard({
   onSelect?: () => void;
   compact?: boolean;
 }) {
+  const { theme } = useTheme();
   const detail =
     typeof barber.years_experience === "number"
       ? `${barber.years_experience} yrs exp`
@@ -46,32 +55,45 @@ export function BarberCard({
           : "Available";
 
   return (
-    <Pressable style={[styles.card, compact && styles.compactCard]} onPress={onSelect} disabled={!onSelect}>
-      <View style={[styles.avatarWrap, compact && styles.compactAvatarWrap]}>
-        <Image source={{ uri: barberImage(barber) }} style={[styles.avatar, compact && styles.compactAvatar]} />
+    <Pressable
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.colors.card,
+          borderColor: theme.colors.line,
+          shadowColor: theme.colors.gold,
+          shadowOpacity: theme.mode === "light" ? 0.1 : 0.04,
+        },
+        compact && styles.compactCard,
+      ]}
+      onPress={onSelect}
+      disabled={!onSelect}
+    >
+      <View style={[styles.avatarWrap, { borderColor: theme.colors.goldDim }, compact && styles.compactAvatarWrap]}>
+        <Image source={{ uri: barberImage(barber) }} style={[styles.avatar, { backgroundColor: theme.colors.elevated }, compact && styles.compactAvatar]} />
       </View>
       <View style={styles.content}>
         <View style={styles.nameRow}>
-          <Text style={[styles.name, compact && styles.compactName]} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={[styles.name, { color: theme.colors.text }, compact && styles.compactName]} numberOfLines={1} ellipsizeMode="tail">
             {barberName(barber)}
           </Text>
           {!compact && (
             <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={colors.gold} />
+              <Ionicons name="checkmark-circle" size={14} color={theme.colors.gold} />
             </View>
           )}
         </View>
-        <Text style={styles.specialty} numberOfLines={compact ? 1 : 2} ellipsizeMode="tail">
+        <Text style={[styles.specialty, { color: theme.colors.muted }]} numberOfLines={compact ? 1 : 2} ellipsizeMode="tail">
           {barberSpecialty(barber)}
         </Text>
         {!compact ? (
           <View style={styles.metaRow}>
             <View style={styles.rating}>
-              <Ionicons name="star" size={13} color={colors.gold} />
-              <Text style={styles.ratingText}>{barberRating(barber).toFixed(1)}</Text>
+              <Ionicons name="star" size={13} color={theme.colors.gold} />
+              <Text style={[styles.ratingText, { color: theme.colors.gold }]}>{barberRating(barber).toFixed(1)}</Text>
             </View>
-            <Text style={styles.priceBadge} numberOfLines={1}>
-              {barber.distance_km != null ? `${barber.distance_km} km` : barberPrice(barber) ?? detail}
+            <Text style={[styles.priceBadge, { color: theme.colors.gold }]} numberOfLines={1}>
+              {barberDistance(barber) ?? barberPrice(barber) ?? detail}
             </Text>
           </View>
         ) : null}
@@ -85,15 +107,12 @@ export function BarberCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.line,
     padding: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    shadowColor: colors.gold,
     shadowOpacity: 0.04,
     shadowRadius: 16,
     elevation: 2,
@@ -105,7 +124,6 @@ const styles = StyleSheet.create({
   avatarWrap: {
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: colors.goldDim,
     padding: 2,
   },
   compactAvatarWrap: {
@@ -116,7 +134,6 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 15,
-    backgroundColor: colors.soft,
   },
   compactAvatar: {
     width: 46,
@@ -136,7 +153,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   name: {
-    color: colors.text,
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.2,
@@ -151,13 +167,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   ratingText: {
-    color: colors.gold,
     fontWeight: "700",
     fontSize: 12,
   },
   specialty: {
     marginTop: 3,
-    color: colors.muted,
     fontSize: 13,
     fontWeight: "500",
     lineHeight: 18,
@@ -169,7 +183,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   priceBadge: {
-    color: colors.gold,
     fontSize: 13,
     fontWeight: "700",
     flex: 1,

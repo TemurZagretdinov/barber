@@ -8,9 +8,11 @@ import { getAdminDashboard } from "../../api/bookings";
 import { AdminPageHeader, AdminPanel, AdminSectionHeader } from "../../components/admin/AdminPanel";
 import { adminColors, adminSpacing, adminTypography } from "../../components/admin/adminTheme";
 import { PrimaryButton } from "../../components/PrimaryButton";
-import { colors, ScreenContainer } from "../../components/ScreenContainer";
+import { ScreenContainer } from "../../components/ScreenContainer";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import type { RootStackParamList } from "../../navigation/types";
 import { useAuth } from "../../store/authStore";
+import { useTheme } from "../../theme/theme";
 import type { AdminDashboard } from "../../types/booking";
 import { formatDateLong, todayISO } from "../../utils/date";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -20,6 +22,7 @@ const GOLD = "#C9A96E";
 export function AdminDashboardScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { signOut } = useAuth();
+  const { theme } = useTheme();
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -53,17 +56,20 @@ export function AdminDashboardScreen() {
         title="Dashboard"
         subtitle={`${formatDateLong(todayISO())} — Umumiy ko'rinish`}
         action={
-          <PrimaryButton
-            title="Chiqish"
-            onPress={logout}
-            variant="ghost"
-            icon={<Ionicons name="log-out-outline" color={GOLD} size={18} />}
-            style={styles.logoutButton}
-          />
+          <View style={styles.headerActions}>
+            <ThemeToggle compact />
+            <PrimaryButton
+              title="Chiqish"
+              onPress={logout}
+              variant="ghost"
+              icon={<Ionicons name="log-out-outline" color={theme.colors.gold} size={18} />}
+              style={styles.logoutButton}
+            />
+          </View>
         }
       />
-      {loading ? <ActivityIndicator color={GOLD} style={{ marginVertical: 16 }} /> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {loading ? <ActivityIndicator color={theme.colors.gold} style={{ marginVertical: 16 }} /> : null}
+      {error ? <Text style={[styles.error, { color: theme.colors.danger }]}>{error}</Text> : null}
       {data ? (
         <View style={styles.content}>
           {/* Stats grid */}
@@ -72,27 +78,27 @@ export function AdminDashboardScreen() {
               label="Barberlar"
               hint="ro'yxatdagi"
               value={data.total_barbers}
-              icon={<Ionicons name="people-outline" color={GOLD} size={22} />}
+              icon={<Ionicons name="people-outline" color={theme.colors.gold} size={22} />}
               dark
             />
             <StatCard
               label="Faol"
               hint="barberlar"
               value={data.active_barbers}
-              icon={<Ionicons name="cut" color={adminColors.muted} size={22} />}
+              icon={<Ionicons name="cut" color={theme.colors.muted} size={22} />}
             />
             <StatCard
               label="Bugun"
               hint="bronlar"
               value={data.today_bookings}
-              icon={<Ionicons name="calendar" color={GOLD} size={22} />}
+              icon={<Ionicons name="calendar" color={theme.colors.gold} size={22} />}
               tint="warning"
             />
             <StatCard
               label="Tugallandi"
               hint="jami"
               value={data.completed_bookings}
-              icon={<Ionicons name="checkmark-circle" color="#10b981" size={22} />}
+              icon={<Ionicons name="checkmark-circle" color={theme.colors.success} size={22} />}
               tint="success"
             />
           </View>
@@ -106,18 +112,18 @@ export function AdminDashboardScreen() {
                 return (
                   <View key={item.id} style={styles.progressItem}>
                     <View style={styles.progressHeader}>
-                      <Text style={styles.progressName} numberOfLines={1}>{item.full_name}</Text>
-                      <Text style={styles.progressCount}>{item.completed_count}/{item.bookings_count}</Text>
+                      <Text style={[styles.progressName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name}</Text>
+                      <Text style={[styles.progressCount, { color: theme.colors.muted }]}>{item.completed_count}/{item.bookings_count}</Text>
                     </View>
-                    <View style={styles.track}>
-                      <View style={[styles.trackFill, { width: `${Math.min(progress * 100, 100)}%` }]} />
+                    <View style={[styles.track, { backgroundColor: theme.colors.elevated }]}>
+                      <View style={[styles.trackFill, { backgroundColor: theme.colors.gold, width: `${Math.min(progress * 100, 100)}%` }]} />
                     </View>
-                    <Text style={styles.revenueMeta}>{item.revenue.toLocaleString()} UZS</Text>
+                    <Text style={[styles.revenueMeta, { color: theme.colors.muted }]}>{item.revenue.toLocaleString()} UZS</Text>
                   </View>
                 );
               })}
               {data.top_barbers.length === 0 ? (
-                <Text style={styles.empty}>Hali bronlar yo'q</Text>
+                <Text style={[styles.empty, { color: theme.colors.muted }]}>Hali bronlar yo'q</Text>
               ) : null}
             </View>
           </AdminPanel>
@@ -142,17 +148,26 @@ function StatCard({
   dark?: boolean;
   tint?: "success" | "warning";
 }) {
+  const { theme } = useTheme();
+  const cardColors = tint === "success"
+    ? { backgroundColor: theme.colors.successBg, borderColor: theme.colors.successLine }
+    : tint === "warning" || dark
+      ? { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }
+      : { backgroundColor: theme.colors.card, borderColor: theme.colors.line };
+  const valueColor = tint === "success" ? theme.colors.success : dark || tint === "warning" ? theme.colors.gold : theme.colors.text;
+
   return (
     <AdminPanel style={[
       styles.statCard,
       dark && styles.darkCard,
       tint === "success" && styles.successCard,
       tint === "warning" && styles.warningCard,
+      cardColors,
     ]}>
       {icon}
-      <Text style={[styles.statValue, dark && styles.darkText]}>{value}</Text>
-      <Text style={[styles.statLabel, dark && styles.darkMuted]}>{label}</Text>
-      <Text style={[styles.statHint, dark && styles.darkMuted]}>{hint}</Text>
+      <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: theme.colors.muted }]}>{label}</Text>
+      <Text style={[styles.statHint, { color: theme.colors.subtle }]}>{hint}</Text>
     </AdminPanel>
   );
 }
@@ -162,6 +177,11 @@ const styles = StyleSheet.create({
     minHeight: 42,
     borderRadius: 12,
     paddingHorizontal: 14,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   content: {
     gap: adminSpacing.lg,

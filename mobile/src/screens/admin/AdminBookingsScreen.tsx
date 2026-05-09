@@ -6,14 +6,16 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { getAdminBookings, updateBookingStatus } from "../../api/bookings";
 import { AdminPageHeader, AdminPanel } from "../../components/admin/AdminPanel";
 import { adminColors, adminRadius, adminSpacing, adminTypography } from "../../components/admin/adminTheme";
-import { colors, ScreenContainer } from "../../components/ScreenContainer";
+import { ScreenContainer } from "../../components/ScreenContainer";
 import { StatusBadge } from "../../components/StatusBadge";
+import { useTheme } from "../../theme/theme";
 import type { BookingStatus, BookingWithBarber } from "../../types/booking";
 import { formatDateLong, formatTime } from "../../utils/date";
 
 const statuses = ["all", "pending", "completed", "cancelled", "no_show"] as const;
 
 export function AdminBookingsScreen() {
+  const { theme } = useTheme();
   const [bookings, setBookings] = useState<BookingWithBarber[]>([]);
   const [status, setStatus] = useState<(typeof statuses)[number]>("all");
   const [search, setSearch] = useState("");
@@ -65,53 +67,61 @@ export function AdminBookingsScreen() {
       </AdminPanel>
 
       <AdminPanel style={styles.filterPanel}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" color={adminColors.muted} size={19} />
-          <TextInput value={search} onChangeText={setSearch} placeholder="Search by client, phone, ID" style={styles.searchInput} placeholderTextColor="#aab2bf" />
+        <View style={[styles.searchBox, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+          <Ionicons name="search" color={theme.colors.muted} size={19} />
+          <TextInput value={search} onChangeText={setSearch} placeholder="Search by client, phone, ID" style={[styles.searchInput, { color: theme.colors.text }]} placeholderTextColor={theme.colors.subtle} />
         </View>
-        <View style={styles.filters}>
+        <View style={[styles.filters, { backgroundColor: theme.colors.elevated, borderColor: theme.colors.line }]}>
           {statuses.map((item) => (
             <Pressable
               key={item}
               onPress={() => setStatus(item)}
-              style={({ pressed }) => [styles.filter, status === item && styles.filterActive, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.filter,
+                status === item && { backgroundColor: theme.colors.gold },
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={[styles.filterText, status === item && styles.filterTextActive]}>{item}</Text>
+              <Text style={[styles.filterText, { color: status === item ? theme.colors.onGold : theme.colors.muted }]}>{item}</Text>
             </Pressable>
           ))}
         </View>
       </AdminPanel>
 
-      {loading ? <ActivityIndicator style={styles.state} color="#C9A96E" /> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {!loading && bookings.length === 0 ? <Text style={styles.empty}>No bookings found.</Text> : null}
+      {loading ? <ActivityIndicator style={styles.state} color={theme.colors.gold} /> : null}
+      {error ? <Text style={[styles.error, { color: theme.colors.danger }]}>{error}</Text> : null}
+      {!loading && bookings.length === 0 ? <Text style={[styles.empty, { color: theme.colors.muted }]}>No bookings found.</Text> : null}
 
       <View style={styles.list}>
         {bookings.map((booking) => (
           <AdminPanel key={booking.id} style={styles.bookingCard}>
             <View style={styles.row}>
               <View style={styles.clientBlock}>
-                <Text style={styles.client} numberOfLines={1}>{booking.client_name}</Text>
-                <Text style={styles.muted} numberOfLines={1}>{booking.client_phone}</Text>
-                <Text style={styles.idText}>ID #{booking.id}</Text>
+                <Text style={[styles.client, { color: theme.colors.text }]} numberOfLines={1}>{booking.client_name}</Text>
+                <Text style={[styles.muted, { color: theme.colors.muted }]} numberOfLines={1}>{booking.client_phone}</Text>
+                <Text style={[styles.idText, { color: theme.colors.subtle }]}>ID #{booking.id}</Text>
               </View>
               <StatusBadge status={booking.status} />
             </View>
-            <Text style={styles.muted} numberOfLines={1}>{booking.barber_name}</Text>
-            <Text style={styles.time}>{formatDateLong(booking.booking_date)} at {formatTime(booking.booking_time)}</Text>
-            <View style={styles.actions}>
+            <Text style={[styles.muted, { color: theme.colors.muted }]} numberOfLines={1}>{booking.barber_name}</Text>
+            <Text style={[styles.time, { color: theme.colors.body }]}>{formatDateLong(booking.booking_date)} at {formatTime(booking.booking_time)}</Text>
+            <View style={[styles.actions, { backgroundColor: theme.colors.elevated, borderColor: theme.colors.line }]}>
               {(["pending", "cancelled", "no_show"] as BookingStatus[]).map((item) => (
                 <Pressable
                   key={item}
                   onPress={() => changeStatus(booking.id, item)}
-                  style={({ pressed }) => [styles.action, booking.status === item && styles.actionActive, pressed && styles.pressed]}
+                  style={({ pressed }) => [
+                    styles.action,
+                    booking.status === item && { backgroundColor: theme.colors.gold },
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={[styles.actionText, booking.status === item && styles.actionTextActive]}>{item}</Text>
+                  <Text style={[styles.actionText, { color: booking.status === item ? theme.colors.onGold : theme.colors.muted }]}>{item}</Text>
                 </Pressable>
               ))}
               {booking.status === "completed" ? (
-                <Pressable style={[styles.action, styles.actionActive]}>
-                  <Text style={styles.actionTextActive}>completed</Text>
+                <Pressable style={[styles.action, { backgroundColor: theme.colors.gold }]}>
+                  <Text style={[styles.actionTextActive, { color: theme.colors.onGold }]}>completed</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -123,9 +133,16 @@ export function AdminBookingsScreen() {
 }
 
 function SummaryPill({ label, tone }: { label: string; tone?: "success" | "warning" }) {
+  const { theme } = useTheme();
+  const palette = tone === "success"
+    ? { backgroundColor: theme.colors.successBg, borderColor: theme.colors.successLine, color: theme.colors.success }
+    : tone === "warning"
+      ? { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine, color: theme.colors.warning }
+      : { backgroundColor: theme.colors.elevated, borderColor: theme.colors.line, color: theme.colors.muted };
+
   return (
-    <View style={[styles.summaryPill, tone === "success" && styles.summarySuccess, tone === "warning" && styles.summaryWarning]}>
-      <Text style={[styles.summaryText, tone === "success" && styles.summarySuccessText, tone === "warning" && styles.summaryWarningText]}>
+    <View style={[styles.summaryPill, { backgroundColor: palette.backgroundColor, borderColor: palette.borderColor }]}>
+      <Text style={[styles.summaryText, { color: palette.color }]}>
         {label}
       </Text>
     </View>

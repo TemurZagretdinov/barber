@@ -8,12 +8,14 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { PublicStackParamList } from "../../navigation/types";
+import { useTheme } from "../../theme/theme";
 import type { Booking } from "../../types/booking";
 import { formatDateLong, formatTime } from "../../utils/date";
 
 type Props = NativeStackScreenProps<PublicStackParamList, "FindBooking">;
 
 export function FindBookingScreen({ navigation }: Props) {
+  const { theme } = useTheme();
   const [code, setCode] = useState("");
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState("");
@@ -29,7 +31,7 @@ export function FindBookingScreen({ navigation }: Props) {
     setFocused(false);
     Animated.timing(anim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
   }
-  const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: ["#2A2A2A", colors.gold] });
+  const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: [theme.colors.line, theme.colors.gold] });
 
   async function submit() {
     setLoading(true);
@@ -48,31 +50,31 @@ export function FindBookingScreen({ navigation }: Props) {
     <ScreenContainer>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
+        <Pressable onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+          <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
         </Pressable>
         <View>
-          <Text style={styles.title}>Bron qidirish</Text>
-          <Text style={styles.subtitle}>Bron kodingizni kiriting</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Bron qidirish</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>Bron kodingizni kiriting</Text>
         </View>
       </View>
 
       {/* Search input */}
-      <Animated.View style={[styles.inputWrap, { borderColor }]}>
-        <Ionicons name="search-outline" size={18} color={focused ? colors.gold : "#555555"} style={{ marginRight: 12 }} />
+      <Animated.View style={[styles.inputWrap, { borderColor, backgroundColor: theme.colors.input }]}>
+        <Ionicons name="search-outline" size={18} color={focused ? theme.colors.gold : theme.colors.subtle} style={{ marginRight: 12 }} />
         <TextInput
           value={code}
           onChangeText={setCode}
           autoCapitalize="characters"
           placeholder="BKG-000001"
-          style={styles.input}
-          placeholderTextColor="#555555"
+          style={[styles.input, { color: theme.colors.text }]}
+          placeholderTextColor={theme.colors.subtle}
           onFocus={onFocus}
           onBlur={onBlur}
         />
         {code.length > 0 && (
           <Pressable onPress={() => setCode("")}>
-            <Ionicons name="close-circle" size={18} color="#555555" />
+            <Ionicons name="close-circle" size={18} color={theme.colors.subtle} />
           </Pressable>
         )}
       </Animated.View>
@@ -82,20 +84,20 @@ export function FindBookingScreen({ navigation }: Props) {
         onPress={submit}
         loading={loading}
         disabled={!code.trim()}
-        icon={<Ionicons name="search-outline" size={18} color="#0A0A0A" />}
+        icon={<Ionicons name="search-outline" size={18} color={theme.colors.onGold} />}
       />
 
       {error ? (
-        <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }]}>
+          <Ionicons name="alert-circle-outline" size={14} color={theme.colors.danger} />
+          <Text style={[styles.errorText, { color: theme.colors.danger }]}>{error}</Text>
         </View>
       ) : null}
 
       {booking ? (
-        <View style={styles.resultCard}>
-          <Text style={styles.resultTitle}>Bron ma'lumotlari</Text>
-          <View style={styles.divider} />
+        <View style={[styles.resultCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.goldDim }]}>
+          <Text style={[styles.resultTitle, { color: theme.colors.text }]}>Bron ma'lumotlari</Text>
+          <View style={[styles.divider, { backgroundColor: theme.colors.line }]} />
           <ResultRow icon="bookmark-outline" label="Kod" value={booking.booking_code ?? `#${booking.id}`} gold />
           <ResultRow icon="person-outline" label="Ism" value={booking.client_name} />
           <ResultRow icon="call-outline" label="Telefon" value={booking.client_phone} />
@@ -119,11 +121,12 @@ function ResultRow({
   value: string;
   gold?: boolean;
 }) {
+  const { theme } = useTheme();
   return (
     <View style={styles.resultRow}>
-      <Ionicons name={icon} size={14} color={colors.muted} />
-      <Text style={styles.resultLabel}>{label}</Text>
-      <Text style={[styles.resultValue, gold && styles.goldValue]} numberOfLines={1}>{value}</Text>
+      <Ionicons name={icon} size={14} color={theme.colors.muted} />
+      <Text style={[styles.resultLabel, { color: theme.colors.muted }]}>{label}</Text>
+      <Text style={[styles.resultValue, { color: gold ? theme.colors.gold : theme.colors.text }]} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
@@ -179,6 +182,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "#1A0000",
     borderRadius: 12,
+    borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginTop: 14,

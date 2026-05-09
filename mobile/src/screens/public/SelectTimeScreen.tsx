@@ -2,22 +2,25 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getAvailableSlots } from "../../api/barbers";
 import { BarberCard, barberName } from "../../components/BarberCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
+import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import { TimeSlotButton } from "../../components/TimeSlotButton";
 import type { PublicStackParamList } from "../../navigation/types";
 import { saveBookingDraft } from "../../store/bookingDraftStore";
+import { useTheme } from "../../theme/theme";
 import type { AvailableSlot } from "../../types/barber";
-import { formatDateLong, nextDates } from "../../utils/date";
+import { formatDateLong, nextDates, todayISO } from "../../utils/date";
 
 type Props = NativeStackScreenProps<PublicStackParamList, "SelectTime">;
 
 export function SelectTimeScreen({ navigation, route }: Props) {
-  const { barber, service } = route.params;
+  const { barber, service, bookingSource } = route.params;
+  const { theme } = useTheme();
   const barberId = Number(route.params.barberId ?? barber?.id);
   const [date, setDate] = useState(nextDates()[0].value);
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
@@ -34,7 +37,7 @@ export function SelectTimeScreen({ navigation, route }: Props) {
         throw new Error("Barber ID noto'g'ri. Iltimos qaytadan barber tanlang.");
       }
       const slotData = await getAvailableSlots(barberId, date, service.id);
-      setSlots(slotData);
+      setSlots(slotData.map((slot) => markPastSlot(slot, date)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load time slots");
     } finally {
@@ -50,31 +53,25 @@ export function SelectTimeScreen({ navigation, route }: Props) {
 
   async function continueBooking() {
     if (!selectedTime) return;
-    await saveBookingDraft({ barberId, serviceId: service.id, date, time: selectedTime });
-    navigation.navigate("BookingDetails", { barber, service, date, time: selectedTime });
+    await saveBookingDraft({ barberId, serviceId: service.id, date, time: selectedTime, bookingSource });
+    navigation.navigate("BookingDetails", { barber, service, date, time: selectedTime, bookingSource });
   }
 
   return (
     <ScreenContainer>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
+        <Pressable onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+          <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
         </Pressable>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Vaqt tanlash</Text>
-          <Text style={styles.subtitle} numberOfLines={1}>{barberName(barber)}</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Vaqt tanlash</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.muted }]} numberOfLines={1}>{barberName(barber)}</Text>
         </View>
       </View>
 
-      {loading ? <ActivityIndicator style={{ marginTop: 24 }} color={colors.gold} /> : null}
-      {error ? (
-        <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={load}><Text style={{ color: colors.gold, fontWeight: "700", fontSize: 12 }}>Retry</Text></Pressable>
-        </View>
-      ) : null}
+      {loading ? <LoadingState label="Vaqtlar yuklanmoqda..." /> : null}
+      {error ? <ErrorState message={error} onRetry={load} /> : null}
 
       {!loading && !error ? (
         <View style={styles.content}>
@@ -82,37 +79,41 @@ export function SelectTimeScreen({ navigation, route }: Props) {
           <BarberCard barber={barber} compact />
 
           {/* Service summary */}
-          <View style={styles.serviceBox}>
-            <View style={styles.serviceIconWrap}>
-              <Ionicons name="cut-outline" size={18} color="#0A0A0A" />
+          <View style={[styles.serviceBox, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+            <View style={[styles.serviceIconWrap, { backgroundColor: theme.colors.gold }]}>
+              <Ionicons name="cut-outline" size={18} color={theme.colors.onGold} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.serviceName}>{service.name}</Text>
-              <Text style={styles.serviceMeta}>
+              <Text style={[styles.serviceName, { color: theme.colors.text }]}>{service.name}</Text>
+              <Text style={[styles.serviceMeta, { color: theme.colors.gold }]}>
                 {Math.round(service.price).toLocaleString("uz-UZ")} so'm · {service.duration_minutes} min
               </Text>
             </View>
           </View>
 
           {/* Date selector */}
-          <Text style={styles.sectionTitle}>Sana tanlash</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.muted }]}>Sana tanlash</Text>
           <View style={styles.dateRow}>
             {nextDates().map((item) => (
               <Pressable
                 key={item.value}
                 onPress={() => setDate(item.value)}
-                style={[styles.dateButton, date === item.value && styles.dateButtonActive]}
+                style={[
+                  styles.dateButton,
+                  { backgroundColor: theme.colors.elevated, borderColor: theme.colors.line },
+                  date === item.value && { backgroundColor: theme.colors.gold, borderColor: theme.colors.gold },
+                ]}
               >
-                <Text style={[styles.dateText, date === item.value && styles.dateTextActive]}>
+                <Text style={[styles.dateText, { color: date === item.value ? theme.colors.onGold : theme.colors.muted }]}>
                   {item.label}
                 </Text>
               </Pressable>
             ))}
           </View>
-          <Text style={styles.dateLabel}>{formatDateLong(date)}</Text>
+          <Text style={[styles.dateLabel, { color: theme.colors.muted }]}>{formatDateLong(date)}</Text>
 
           {/* Time slots */}
-          <Text style={styles.sectionTitle}>Bo'sh vaqtlar</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.muted }]}>Bo'sh vaqtlar</Text>
           <View style={styles.slotGrid}>
             {slots.map((slot, index) => (
               <TimeSlotButton
@@ -126,16 +127,13 @@ export function SelectTimeScreen({ navigation, route }: Props) {
 
           {/* Legend */}
           <View style={styles.legend}>
-            <LegendDot color={colors.gold} label="Tanlangan" />
-            <LegendDot color="#1C1C1C" label="Bo'sh" />
-            <LegendDot color="#141414" label="Band" />
+            <LegendDot color={theme.colors.gold} borderColor={theme.colors.gold} label="Tanlangan" />
+            <LegendDot color={theme.colors.elevated} borderColor={theme.colors.line} label="Bo'sh" />
+            <LegendDot color={theme.colors.card} borderColor={theme.colors.line} label="Band" />
           </View>
 
           {slots.length === 0 || !slots.some((s) => s.is_available) ? (
-            <View style={styles.emptyBox}>
-              <Ionicons name="time-outline" size={30} color={colors.muted} />
-              <Text style={styles.emptyText}>Bu kunda bo'sh vaqt yo'q</Text>
-            </View>
+            <EmptyState icon="time-outline" title="Bu kunda bo'sh vaqt yo'q" message="Boshqa sana tanlab ko'ring." />
           ) : null}
 
           <PrimaryButton
@@ -149,11 +147,29 @@ export function SelectTimeScreen({ navigation, route }: Props) {
   );
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function markPastSlot(slot: AvailableSlot, date: string): AvailableSlot {
+  if (date !== todayISO()) {
+    return slot;
+  }
+
+  const [hour, minute] = slot.time.split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return slot;
+  }
+
+  const slotDate = new Date();
+  slotDate.setHours(hour, minute, 0, 0);
+  const expired = slotDate.getTime() <= Date.now();
+
+  return expired ? { ...slot, is_available: false, is_expired: true } : slot;
+}
+
+function LegendDot({ color, borderColor, label }: { color: string; borderColor: string; label: string }) {
+  const { theme } = useTheme();
   return (
     <View style={styles.legendItem}>
-      <View style={[styles.legendDot, { backgroundColor: color, borderColor: color === "#1C1C1C" ? "#2A2A2A" : color }]} />
-      <Text style={styles.legendText}>{label}</Text>
+      <View style={[styles.legendDot, { backgroundColor: color, borderColor }]} />
+      <Text style={[styles.legendText, { color: theme.colors.muted }]}>{label}</Text>
     </View>
   );
 }

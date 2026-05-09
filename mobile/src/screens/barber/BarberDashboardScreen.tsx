@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -8,8 +7,10 @@ import { getBarberDashboard } from "../../api/bookings";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import { StatusBadge } from "../../components/StatusBadge";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import type { BarberStackParamList } from "../../navigation/types";
 import { useAuth } from "../../store/authStore";
+import { useTheme } from "../../theme/theme";
 import type { BarberDashboard } from "../../types/booking";
 import { formatDateLong, formatTime, todayISO } from "../../utils/date";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -19,6 +20,7 @@ const GOLD = "#C9A96E";
 export function BarberDashboardScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BarberStackParamList>>();
   const { signOut, user } = useAuth();
+  const { theme } = useTheme();
   const [data, setData] = useState<BarberDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,11 +50,11 @@ export function BarberDashboardScreen() {
 
   return (
     <ScreenContainer>
-      {loading ? <ActivityIndicator color={GOLD} style={{ marginVertical: 24 }} /> : null}
+      {loading ? <ActivityIndicator color={theme.colors.gold} style={{ marginVertical: 24 }} /> : null}
       {error ? (
-        <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }]}>
+          <Ionicons name="alert-circle-outline" size={14} color={theme.colors.danger} />
+          <Text style={[styles.errorText, { color: theme.colors.danger }]}>{error}</Text>
         </View>
       ) : null}
 
@@ -61,18 +63,21 @@ export function BarberDashboardScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.greeting}>Xush kelibsiz,</Text>
-              <Text style={styles.title}>{user?.email?.split("@")[0] ?? "Barber"}</Text>
+              <Text style={[styles.greeting, { color: theme.colors.muted }]}>Xush kelibsiz,</Text>
+              <Text style={[styles.title, { color: theme.colors.text }]}>{user?.email?.split("@")[0] ?? "Barber"}</Text>
             </View>
-            <Pressable onPress={logout} style={styles.logoutBtn}>
-              <Ionicons name="log-out-outline" size={20} color={GOLD} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <ThemeToggle compact />
+              <Pressable onPress={logout} style={[styles.logoutBtn, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
+                <Ionicons name="log-out-outline" size={20} color={theme.colors.gold} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Date row */}
           <View style={styles.dateRow}>
-            <Ionicons name="calendar-outline" size={14} color={colors.muted} />
-            <Text style={styles.dateText}>{formatDateLong(todayISO())}</Text>
+            <Ionicons name="calendar-outline" size={14} color={theme.colors.muted} />
+            <Text style={[styles.dateText, { color: theme.colors.muted }]}>{formatDateLong(todayISO())}</Text>
           </View>
 
           {/* Metrics grid */}
@@ -83,11 +88,11 @@ export function BarberDashboardScreen() {
           </View>
 
           {/* Revenue panel */}
-          <View style={styles.revenueCard}>
-            <Text style={styles.revenueLabel}>Bugungi daromad</Text>
-            <Text style={styles.revenueValue}>{data.today_revenue.toLocaleString()} UZS</Text>
-            <View style={styles.revenueDivider} />
-            <Text style={styles.revenueWeek}>
+          <View style={[styles.revenueCard, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
+            <Text style={[styles.revenueLabel, { color: theme.colors.muted }]}>Bugungi daromad</Text>
+            <Text style={[styles.revenueValue, { color: theme.colors.gold }]}>{data.today_revenue.toLocaleString()} UZS</Text>
+            <View style={[styles.revenueDivider, { backgroundColor: theme.colors.line }]} />
+            <Text style={[styles.revenueWeek, { color: theme.colors.muted }]}>
               Hafta: {data.week_revenue.toLocaleString()} UZS · {data.week_completed} ta tugallandi
             </Text>
           </View>
@@ -96,30 +101,30 @@ export function BarberDashboardScreen() {
           <PrimaryButton
             title="Kunlik jadval"
             onPress={() => navigation.navigate("BarberSchedule")}
-            icon={<Ionicons name="calendar-outline" size={18} color="#0A0A0A" />}
+            icon={<Ionicons name="calendar-outline" size={18} color={theme.colors.onGold} />}
           />
 
           {/* Today's appointments */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Bugungi uchrashuvlar</Text>
-            <Text style={styles.sectionCount}>{data.today_bookings} ta</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Bugungi uchrashuvlar</Text>
+            <Text style={[styles.sectionCount, { color: theme.colors.muted }]}>{data.today_bookings} ta</Text>
           </View>
 
           <View style={styles.list}>
             {data.bookings.length === 0 ? (
               <View style={styles.emptyBox}>
-                <Ionicons name="calendar-outline" size={32} color={colors.muted} />
-                <Text style={styles.emptyText}>Bugun uchrashuvlar yo'q</Text>
+                <Ionicons name="calendar-outline" size={32} color={theme.colors.muted} />
+                <Text style={[styles.emptyText, { color: theme.colors.muted }]}>Bugun uchrashuvlar yo'q</Text>
               </View>
             ) : null}
             {data.bookings.map((booking) => (
-              <View key={booking.id} style={styles.bookingItem}>
-                <View style={styles.bookingTime}>
-                  <Text style={styles.bookingTimeText}>{formatTime(booking.time)}</Text>
+              <View key={booking.id} style={[styles.bookingItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
+                <View style={[styles.bookingTime, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
+                  <Text style={[styles.bookingTimeText, { color: theme.colors.gold }]}>{formatTime(booking.time)}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.bookingClient}>{booking.customer_name}</Text>
-                  <Text style={styles.bookingPhone}>{booking.customer_phone}</Text>
+                  <Text style={[styles.bookingClient, { color: theme.colors.text }]}>{booking.customer_name}</Text>
+                  <Text style={[styles.bookingPhone, { color: theme.colors.muted }]}>{booking.customer_phone}</Text>
                 </View>
                 <StatusBadge status={booking.status} />
               </View>
@@ -144,21 +149,30 @@ function MetricCard({
   dark?: boolean;
   success?: boolean;
 }) {
+  const { theme } = useTheme();
+  const cardColors = success
+    ? { backgroundColor: theme.colors.successBg, borderColor: theme.colors.successLine }
+    : dark
+      ? { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }
+      : { backgroundColor: theme.colors.card, borderColor: theme.colors.line };
+  const tintColor = dark ? theme.colors.gold : success ? theme.colors.success : theme.colors.muted;
+
   return (
     <View style={[
       styles.metric,
       dark && styles.metricDark,
       success && styles.metricSuccess,
+      cardColors,
     ]}>
       <Ionicons
         name={icon}
         size={22}
-        color={dark ? GOLD : success ? "#10b981" : colors.muted}
+        color={tintColor}
       />
-      <Text style={[styles.metricValue, dark && styles.metricValueDark, success && styles.metricValueSuccess]}>
+      <Text style={[styles.metricValue, { color: dark ? theme.colors.gold : success ? theme.colors.success : theme.colors.text }]}>
         {value}
       </Text>
-      <Text style={[styles.metricLabel, dark && styles.metricLabelDark]}>
+      <Text style={[styles.metricLabel, { color: theme.colors.muted }]}>
         {label}
       </Text>
     </View>
@@ -174,6 +188,13 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+    minWidth: 0,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
   },
   greeting: {
     color: colors.muted,
@@ -353,6 +374,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "#1A0000",
     borderRadius: 12,
+    borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },

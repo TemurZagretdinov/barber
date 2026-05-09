@@ -13,7 +13,7 @@ const Stack = createNativeStackNavigator<PublicStackParamList>();
 
 export function PublicNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
       <Stack.Screen name="ChooseBarber" component={ChooseBarberScreen} />
       <Stack.Screen name="SelectService" component={SelectServiceScreen} />
       <Stack.Screen name="SelectTime" component={SelectTimeScreen} />

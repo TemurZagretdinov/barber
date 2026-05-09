@@ -11,7 +11,16 @@ export async function getMe(): Promise<User> {
   return response.data;
 }
 
-export async function registerCustomer(email: string, password: string): Promise<User> {
-  const response = await apiClient.post<User>("/auth/customer", { email, password });
+export async function registerCustomer(
+  email: string,
+  password: string,
+  profile: { full_name?: string | null; phone?: string | null } = {},
+): Promise<User> {
+  const response = await apiClient.post<User>("/auth/customer", {
+    email,
+    password,
+    full_name: profile.full_name ?? null,
+    phone: profile.phone ?? null,
+  });
   return response.data;
 }
