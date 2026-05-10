@@ -32,6 +32,8 @@ export interface Barber {
   today_bookings?: number;
   balance?: number;
   debt?: number;
+  demo_balance?: number;
+  demo_debt?: number;
   commission_percent?: number;
 }
 

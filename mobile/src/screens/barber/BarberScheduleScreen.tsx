@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -8,7 +7,6 @@ import { cancelBarberBooking, completeBarberBookingWithNote, getBarberSchedule, 
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import { StatusBadge } from "../../components/StatusBadge";
-import type { BarberStackParamList } from "../../navigation/types";
 import { useTheme } from "../../theme/theme";
 import type { BookingStatus, BookingWithBarber } from "../../types/booking";
 import { addDays, formatDateLong, formatTime, todayISO } from "../../utils/date";
@@ -18,7 +16,7 @@ const GOLD_DIM = "#C9A96E40";
 
 const filters = ["all", "pending", "completed", "cancelled", "no_show"] as const;
 const filterLabels: Record<string, string> = {
-  all: "Barchasi",
+  all: "Hammasi",
   pending: "Kutilmoqda",
   completed: "Tugallandi",
   cancelled: "Bekor",
@@ -26,12 +24,11 @@ const filterLabels: Record<string, string> = {
 };
 type ActionKind = "complete" | "no_show" | "cancel";
 
-type Props = NativeStackScreenProps<BarberStackParamList, "BarberSchedule">;
-
-export function BarberScheduleScreen({ navigation }: Props) {
+export function BarberScheduleScreen() {
   const { theme } = useTheme();
   const [date, setDate] = useState(todayISO());
   const [filter, setFilter] = useState<(typeof filters)[number]>("all");
+  const [search, setSearch] = useState("");
   const [bookings, setBookings] = useState<BookingWithBarber[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -76,16 +73,33 @@ export function BarberScheduleScreen({ navigation }: Props) {
     }
   }
 
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleBookings = normalizedSearch
+    ? bookings.filter((booking) => {
+        const haystack = [
+          booking.client_name,
+          booking.client_phone,
+          booking.service_name ?? "",
+          booking.booking_code ?? "",
+        ].join(" ").toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+    : bookings;
+
+  function money(value: number | null | undefined) {
+    return `${Math.round(value ?? 0).toLocaleString()} UZS`;
+  }
+
   return (
     <ScreenContainer>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={[styles.roundButton, { backgroundColor: theme.colors.input, borderColor: theme.colors.line }]}>
-          <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
-        </Pressable>
+        <View style={[styles.brandIcon, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
+          <Ionicons name="cut-outline" size={22} color={theme.colors.gold} />
+        </View>
         <View>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Kunlik jadval</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>Barcha uchrashuvlar</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Mijozlar / Bronlar</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>App orqali kelgan mijozlar</Text>
         </View>
       </View>
 
@@ -122,6 +136,17 @@ export function BarberScheduleScreen({ navigation }: Props) {
         ))}
       </View>
 
+      <View style={[styles.searchBox, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
+        <Ionicons name="search-outline" size={18} color={theme.colors.muted} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Mijoz, telefon yoki xizmat"
+          placeholderTextColor={theme.colors.subtle}
+          style={[styles.searchInput, { color: theme.colors.text }]}
+        />
+      </View>
+
       {loading ? <ActivityIndicator color={theme.colors.gold} style={{ marginVertical: 20 }} /> : null}
       {error ? (
         <View style={[styles.errorBox, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }]}>
@@ -129,16 +154,18 @@ export function BarberScheduleScreen({ navigation }: Props) {
           <Text style={[styles.errorText, { color: theme.colors.danger }]}>{error}</Text>
         </View>
       ) : null}
-      {!loading && bookings.length === 0 ? (
+      {!loading && visibleBookings.length === 0 ? (
         <View style={styles.emptyBox}>
           <Ionicons name="calendar-outline" size={36} color={theme.colors.muted} />
-          <Text style={[styles.emptyText, { color: theme.colors.muted }]}>Bu kunda uchrashuvlar yo'q</Text>
+          <Text style={[styles.emptyText, { color: theme.colors.muted }]}>
+            {date === todayISO() ? "Bugun mijozlar yo'q" : "Bu kunda mijozlar yo'q"}
+          </Text>
         </View>
       ) : null}
 
       {/* Bookings */}
       <View style={styles.list}>
-        {bookings.map((booking) => (
+        {visibleBookings.map((booking) => (
           <View key={booking.id} style={[styles.bookingCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
             <View style={styles.bookingRow}>
               <View style={[styles.timeTag, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
@@ -149,6 +176,17 @@ export function BarberScheduleScreen({ navigation }: Props) {
                 <Text style={[styles.clientPhone, { color: theme.colors.muted }]}>{booking.client_phone}</Text>
               </View>
               <StatusBadge status={booking.status as BookingStatus} />
+            </View>
+            <View style={[styles.serviceRow, { backgroundColor: theme.colors.elevated }]}>
+              <View style={styles.serviceMeta}>
+                <Ionicons name="sparkles-outline" size={15} color={theme.colors.gold} />
+                <Text style={[styles.serviceText, { color: theme.colors.text }]} numberOfLines={1}>
+                  {booking.service_name ?? "Xizmat"}
+                </Text>
+              </View>
+              <Text style={[styles.priceText, { color: theme.colors.gold }]}>
+                {money(booking.service_price ?? booking.price)}
+              </Text>
             </View>
             {booking.service_note ? (
               <Text style={[styles.serviceNote, { backgroundColor: theme.colors.elevated, color: theme.colors.muted }]}>{booking.service_note}</Text>
@@ -239,6 +277,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  brandIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
   title: {
     color: colors.text,
     fontSize: 22,
@@ -276,6 +322,22 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
     marginTop: 4,
+  },
+  searchBox: {
+    minHeight: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    marginTop: 2,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    paddingVertical: 0,
   },
   filterChip: {
     paddingHorizontal: 14,
@@ -349,6 +411,31 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  serviceRow: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  serviceMeta: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  serviceText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  priceText: {
+    fontSize: 13,
+    fontWeight: "900",
   },
   actionsRow: {
     flexDirection: "row",

@@ -6,20 +6,19 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { getBarberBalance, getBarberDashboard, getBarberTransactions, topUpBarberBalance } from "../../api/bookings";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
-import { StatusBadge } from "../../components/StatusBadge";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import type { BarberStackParamList } from "../../navigation/types";
 import { useAuth } from "../../store/authStore";
 import { useTheme } from "../../theme/theme";
 import type { BarberDashboard } from "../../types/booking";
 import type { BarberBalance, BarberTransaction } from "../../types/finance";
-import { formatDateLong, formatTime, todayISO } from "../../utils/date";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { formatDateLong, todayISO } from "../../utils/date";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 
 const GOLD = "#C9A96E";
 
 export function BarberDashboardScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<BarberStackParamList>>();
+  const navigation = useNavigation<BottomTabNavigationProp<BarberStackParamList>>();
   const { signOut, user } = useAuth();
   const { theme } = useTheme();
   const [data, setData] = useState<BarberDashboard | null>(null);
@@ -98,7 +97,8 @@ export function BarberDashboardScreen() {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text style={[styles.greeting, { color: theme.colors.muted }]}>Xush kelibsiz,</Text>
-              <Text style={[styles.title, { color: theme.colors.text }]}>{user?.email?.split("@")[0] ?? "Barber"}</Text>
+              <Text style={[styles.title, { color: theme.colors.text }]}>Dashboard / Hisob</Text>
+              <Text style={[styles.accountText, { color: theme.colors.subtle }]}>{user?.email?.split("@")[0] ?? "Barber"}</Text>
             </View>
             <View style={styles.headerActions}>
               <ThemeToggle compact />
@@ -123,11 +123,11 @@ export function BarberDashboardScreen() {
 
           {/* Revenue panel */}
           <View style={[styles.revenueCard, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
-            <Text style={[styles.revenueLabel, { color: theme.colors.muted }]}>Bugungi daromad</Text>
-            <Text style={[styles.revenueValue, { color: theme.colors.gold }]}>{data.today_revenue.toLocaleString()} UZS</Text>
+            <Text style={[styles.revenueLabel, { color: theme.colors.muted }]}>Demo finance - real to'lov ulanmagan</Text>
+            <Text style={[styles.revenueValue, { color: theme.colors.gold }]}>{money(balance?.today_gross_revenue ?? data.today_revenue)}</Text>
             <View style={[styles.revenueDivider, { backgroundColor: theme.colors.line }]} />
             <Text style={[styles.revenueWeek, { color: theme.colors.muted }]}>
-              Hafta: {data.week_revenue.toLocaleString()} UZS · {data.week_completed} ta tugallandi
+              Bu alpha test uchun ichki hisob-kitob. Komissiya {balance?.commission_percent ?? 10}%.
             </Text>
           </View>
 
@@ -138,23 +138,25 @@ export function BarberDashboardScreen() {
                   <Ionicons name="alert-circle" color={theme.colors.danger} size={18} />
                   <Text style={[styles.warningText, { color: theme.colors.danger }]}>Hisobingiz bloklangan. Iltimos, balansni to'ldiring.</Text>
                 </View>
-              ) : balance.debt > 0 ? (
+              ) : balance.demo_debt > 0 ? (
                 <View style={[styles.warningBox, { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine }]}>
                   <Ionicons name="warning" color={theme.colors.warning} size={18} />
-                  <Text style={[styles.warningText, { color: theme.colors.warning }]}>Hisobingizda qarzdorlik bor. Yangi bookinglarni olish uchun hisobingizni to'ldiring.</Text>
+                  <Text style={[styles.warningText, { color: theme.colors.warning }]}>Hisobingizda qarzdorlik bor. Keyingi bookinglarni olish uchun balansni to'ldiring.</Text>
                 </View>
               ) : null}
 
               <View style={styles.financeGrid}>
-                <FinanceCard label="Balans" value={money(balance.balance)} icon="wallet-outline" dark />
-                <FinanceCard label="Qarzdorlik" value={money(balance.debt)} icon="alert-circle-outline" danger={balance.debt > 0} />
+                <FinanceCard label="Demo balans" value={money(balance.demo_balance)} icon="wallet-outline" dark />
+                <FinanceCard label="Qarzdorlik" value={money(balance.demo_debt)} icon="alert-circle-outline" danger={balance.demo_debt > 0} />
                 <FinanceCard label="Bugungi tushum" value={money(balance.today_gross_revenue)} icon="cash-outline" />
-                <FinanceCard label="Komissiya" value={money(balance.today_commission)} icon="receipt-outline" />
+                <FinanceCard label={`Komissiya ${balance.commission_percent}%`} value={money(balance.today_commission)} icon="receipt-outline" />
                 <FinanceCard label="Toza daromad" value={money(balance.today_net_earning)} icon="trending-up-outline" success />
+                <FinanceCard label="Tugallangan" value={`${balance.today_completed_bookings} ta`} icon="checkmark-done-outline" />
               </View>
 
               <View style={[styles.topUpCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
-                <Text style={[styles.topUpTitle, { color: theme.colors.text }]}>Hisobni to'ldirish</Text>
+                <Text style={[styles.topUpTitle, { color: theme.colors.text }]}>Hisobni demo to'ldirish</Text>
+                <Text style={[styles.topUpHint, { color: theme.colors.muted }]}>Real karta yoki bank to'lovi ulanmagan.</Text>
                 <View style={styles.topUpRow}>
                   <TextInput
                     value={topUpAmount}
@@ -165,7 +167,7 @@ export function BarberDashboardScreen() {
                     style={[styles.topUpInput, { backgroundColor: theme.colors.input, borderColor: theme.colors.line, color: theme.colors.text }]}
                   />
                   <PrimaryButton
-                    title={topUpBusy ? "..." : "Top-up"}
+                    title={topUpBusy ? "..." : "Demo"}
                     onPress={submitTopUp}
                     style={styles.topUpButton}
                     icon={<Ionicons name="add-circle-outline" size={18} color={theme.colors.onGold} />}
@@ -177,40 +179,13 @@ export function BarberDashboardScreen() {
 
           {/* Schedule button */}
           <PrimaryButton
-            title="Kunlik jadval"
+            title="Mijozlar / Bronlar"
             onPress={() => navigation.navigate("BarberSchedule")}
-            icon={<Ionicons name="calendar-outline" size={18} color={theme.colors.onGold} />}
+            icon={<Ionicons name="people-outline" size={18} color={theme.colors.onGold} />}
           />
 
-          {/* Today's appointments */}
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Bugungi uchrashuvlar</Text>
-            <Text style={[styles.sectionCount, { color: theme.colors.muted }]}>{data.today_bookings} ta</Text>
-          </View>
-
-          <View style={styles.list}>
-            {data.bookings.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Ionicons name="calendar-outline" size={32} color={theme.colors.muted} />
-                <Text style={[styles.emptyText, { color: theme.colors.muted }]}>Bugun uchrashuvlar yo'q</Text>
-              </View>
-            ) : null}
-            {data.bookings.map((booking) => (
-              <View key={booking.id} style={[styles.bookingItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
-                <View style={[styles.bookingTime, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
-                  <Text style={[styles.bookingTimeText, { color: theme.colors.gold }]}>{formatTime(booking.time)}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.bookingClient, { color: theme.colors.text }]}>{booking.customer_name}</Text>
-                  <Text style={[styles.bookingPhone, { color: theme.colors.muted }]}>{booking.customer_phone}</Text>
-                </View>
-                <StatusBadge status={booking.status} />
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Transaction history</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Demo transactionlar</Text>
             <Text style={[styles.sectionCount, { color: theme.colors.muted }]}>{transactions.length} ta</Text>
           </View>
           <View style={styles.list}>
@@ -226,7 +201,10 @@ export function BarberDashboardScreen() {
                   <Text style={[styles.transactionType, { color: theme.colors.text }]}>{item.type.replace(/_/g, " ")}</Text>
                   <Text style={[styles.transactionMeta, { color: theme.colors.muted }]} numberOfLines={1}>{item.description ?? "Balance operation"}</Text>
                   <Text style={[styles.transactionMeta, { color: theme.colors.subtle }]}>
-                    {money(item.balance_before)} - {money(item.balance_after)}
+                    Balans: {money(item.balance_before)} - {money(item.balance_after)}
+                  </Text>
+                  <Text style={[styles.transactionMeta, { color: theme.colors.subtle }]}>
+                    Qarz: {money(item.debt_before)} - {money(item.debt_after)}
                   </Text>
                 </View>
                 <Text style={[styles.transactionAmount, { color: theme.colors.gold }]}>{money(item.amount)}</Text>
@@ -343,6 +321,11 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "800",
     letterSpacing: 0.2,
+  },
+  accountText: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
   },
   logoutBtn: {
     width: 44,
@@ -493,6 +476,11 @@ const styles = StyleSheet.create({
   topUpTitle: {
     fontSize: 15,
     fontWeight: "800",
+  },
+  topUpHint: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: -4,
   },
   topUpRow: {
     flexDirection: "row",

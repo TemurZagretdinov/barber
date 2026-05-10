@@ -127,8 +127,8 @@ export function AdminBarbersScreen() {
               <Text style={[styles.meta, { color: theme.colors.subtle }]} numberOfLines={2}>
                 {barber.years_experience ?? 0} yrs exp - {barber.email} - {barber.total_bookings ?? 0} total bookings
               </Text>
-              <Text style={[styles.financeMeta, { color: (barber.debt ?? 0) > 0 ? theme.colors.danger : theme.colors.gold }]} numberOfLines={1}>
-                Balance {(barber.balance ?? 0).toLocaleString()} UZS - Debt {(barber.debt ?? 0).toLocaleString()} UZS
+              <Text style={[styles.financeMeta, { color: (barber.demo_debt ?? barber.debt ?? 0) > 0 ? theme.colors.danger : theme.colors.gold }]} numberOfLines={1}>
+                Demo balans {(barber.demo_balance ?? barber.balance ?? 0).toLocaleString()} UZS - Qarz {(barber.demo_debt ?? barber.debt ?? 0).toLocaleString()} UZS
               </Text>
             </View>
             <View style={[styles.todayBox, { backgroundColor: theme.colors.goldSoft }]}>

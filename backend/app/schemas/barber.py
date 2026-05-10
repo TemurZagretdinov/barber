@@ -67,6 +67,8 @@ class BarberAdminRead(BarberRead):
     today_bookings: int = 0
     balance: int = 0
     debt: int = 0
+    demo_balance: int = 0
+    demo_debt: int = 0
     commission_percent: int = 10
 
 

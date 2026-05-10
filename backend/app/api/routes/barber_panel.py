@@ -23,7 +23,13 @@ from app.schemas.barber import (
 )
 from app.schemas.booking import BookingActionNote, BookingWithBarber
 from app.schemas.dashboard import BarberDashboard, BarberDashboardV2
-from app.schemas.finance import BarberBalanceRead, BarberTopUpRequest, BarberTransactionRead
+from app.schemas.finance import (
+    BarberBalanceRead,
+    BarberTopUpRequest,
+    BarberTransactionRead,
+    DemoBarberFinanceRead,
+    DemoBarberTransactionRead,
+)
 from app.services.booking_service import (
     booking_to_with_barber,
     complete_booking_for_barber,
@@ -31,7 +37,14 @@ from app.services.booking_service import (
     update_barber_booking_action,
 )
 from app.services.dashboard_service import get_barber_dashboard, get_barber_dashboard_v2
-from app.services.finance_service import get_barber_balance_summary, list_barber_transactions, top_up_barber_balance
+from app.services.finance_service import (
+    get_barber_balance_summary,
+    get_demo_barber_finance,
+    list_barber_transactions,
+    list_demo_barber_transactions,
+    top_up_barber_balance,
+    top_up_demo_barber_balance,
+)
 
 router = APIRouter()
 
@@ -77,6 +90,31 @@ def barber_top_up(
     db: Session = Depends(get_db),
 ) -> BarberBalanceRead:
     return top_up_barber_balance(db, barber, payload.amount)
+
+
+@router.get("/barber/demo-finance", response_model=DemoBarberFinanceRead)
+def barber_demo_finance(
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> DemoBarberFinanceRead:
+    return get_demo_barber_finance(db, barber)
+
+
+@router.get("/barber/demo-transactions", response_model=list[DemoBarberTransactionRead])
+def barber_demo_transactions(
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> list:
+    return list_demo_barber_transactions(db, barber.id)
+
+
+@router.post("/barber/demo-balance/top-up", response_model=DemoBarberFinanceRead)
+def barber_demo_top_up(
+    payload: BarberTopUpRequest,
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> DemoBarberFinanceRead:
+    return top_up_demo_barber_balance(db, barber, payload.amount)
 
 
 @router.get("/barber/services", response_model=list[BarberServiceRead])

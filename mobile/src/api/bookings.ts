@@ -18,12 +18,12 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
 }
 
 export async function getAdminFinanceOverview(): Promise<AdminFinanceOverview> {
-  const response = await apiClient.get<AdminFinanceOverview>("/admin/finance/overview");
+  const response = await apiClient.get<AdminFinanceOverview>("/admin/demo-finance/overview");
   return response.data;
 }
 
 export async function runAdminSettlement(date: string) {
-  const response = await apiClient.post("/admin/settlements/run", { date });
+  const response = await apiClient.post("/admin/demo-settlements/run", { date });
   return response.data;
 }
 
@@ -63,17 +63,17 @@ export async function getBarberDashboard(date: string): Promise<BarberDashboard>
 }
 
 export async function getBarberBalance(): Promise<BarberBalance> {
-  const response = await apiClient.get<BarberBalance>("/barber/balance");
+  const response = await apiClient.get<BarberBalance>("/barber/demo-finance");
   return response.data;
 }
 
 export async function getBarberTransactions(): Promise<BarberTransaction[]> {
-  const response = await apiClient.get<BarberTransaction[]>("/barber/transactions");
+  const response = await apiClient.get<BarberTransaction[]>("/barber/demo-transactions");
   return response.data;
 }
 
 export async function topUpBarberBalance(amount: number): Promise<BarberBalance> {
-  const response = await apiClient.post<BarberBalance>("/barber/balance/top-up", { amount });
+  const response = await apiClient.post<BarberBalance>("/barber/demo-balance/top-up", { amount });
   return response.data;
 }
 

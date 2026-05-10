@@ -20,9 +20,12 @@ from app.schemas.dashboard import AdminDashboard, AdminDashboardV2
 from app.schemas.finance import (
     AdminBalanceAdjustmentRequest,
     AdminBarberFinanceRead,
+    AdminDemoBarberFinanceRead,
+    AdminDemoFinanceOverview,
     AdminFinanceOverview,
     DailySettlementRunRequest,
     DailySettlementRunResponse,
+    DemoDailySettlementRunResponse,
 )
 from app.services.booking_service import (
     booking_to_with_barber,
@@ -35,8 +38,12 @@ from app.services.dashboard_service import get_admin_dashboard, get_admin_dashbo
 from app.services.demo_seed_service import seed_demo_data
 from app.services.finance_service import (
     adjust_barber_balance,
+    adjust_demo_barber_balance,
+    get_admin_demo_barber_finance,
+    get_admin_demo_finance_overview,
     get_admin_barber_finance,
     get_admin_finance_overview,
+    run_demo_daily_settlement,
     run_daily_settlement,
 )
 
@@ -111,6 +118,8 @@ def admin_barber_payload(db: Session, barber: Barber) -> BarberAdminRead:
     )
     base["balance"] = barber.balance
     base["debt"] = barber.debt
+    base["demo_balance"] = barber.demo_balance
+    base["demo_debt"] = barber.demo_debt
     base["commission_percent"] = barber.commission_percent
     return BarberAdminRead(**base)
 
@@ -269,3 +278,42 @@ def adjust_balance(
     db: Session = Depends(get_db),
 ) -> AdminBarberFinanceRead:
     return adjust_barber_balance(db, barber_id, payload.amount, payload.description)
+
+
+@router.get("/admin/demo-finance/overview", response_model=AdminDemoFinanceOverview, dependencies=[Depends(require_admin)])
+def demo_finance_overview(db: Session = Depends(get_db)) -> AdminDemoFinanceOverview:
+    return get_admin_demo_finance_overview(db)
+
+
+@router.get(
+    "/admin/barbers/{barber_id}/demo-finance",
+    response_model=AdminDemoBarberFinanceRead,
+    dependencies=[Depends(require_admin)],
+)
+def barber_demo_finance(barber_id: int, db: Session = Depends(get_db)) -> AdminDemoBarberFinanceRead:
+    return get_admin_demo_barber_finance(db, barber_id)
+
+
+@router.post(
+    "/admin/demo-settlements/run",
+    response_model=DemoDailySettlementRunResponse,
+    dependencies=[Depends(require_admin)],
+)
+def run_demo_settlements(
+    payload: DailySettlementRunRequest,
+    db: Session = Depends(get_db),
+) -> DemoDailySettlementRunResponse:
+    return run_demo_daily_settlement(db, payload.date)
+
+
+@router.post(
+    "/admin/barbers/{barber_id}/demo-balance/adjust",
+    response_model=AdminDemoBarberFinanceRead,
+    dependencies=[Depends(require_admin)],
+)
+def adjust_demo_balance(
+    barber_id: int,
+    payload: AdminBalanceAdjustmentRequest,
+    db: Session = Depends(get_db),
+) -> AdminDemoBarberFinanceRead:
+    return adjust_demo_barber_balance(db, barber_id, payload.amount, payload.description)

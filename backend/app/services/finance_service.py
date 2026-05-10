@@ -6,12 +6,17 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import settings
 from app.models.barber import Barber
 from app.models.booking import Booking
-from app.models.finance import BarberDailySettlement, BarberTransaction
+from app.models.finance import BarberDailySettlement, BarberTransaction, DemoBarberTransaction, DemoDailySettlement
 from app.schemas.finance import (
     AdminBarberFinanceRead,
+    AdminDemoBarberFinanceRead,
+    AdminDemoFinanceOverview,
     AdminFinanceOverview,
     BarberBalanceRead,
     BarberDebtItem,
+    DemoBarberDebtItem,
+    DemoBarberFinanceRead,
+    DemoDailySettlementRunResponse,
     DailySettlementRunResponse,
     FinanceTopBarber,
 )
@@ -32,7 +37,8 @@ def effective_commission_percent(barber: Barber) -> int:
 
 def apply_financial_blocking(barber: Barber) -> None:
     threshold = max(settings.financial_block_threshold, 0)
-    barber.is_financially_blocked = threshold > 0 and barber.debt >= threshold
+    active_debt = max(getattr(barber, "debt", 0), getattr(barber, "demo_debt", 0))
+    barber.is_financially_blocked = threshold > 0 and active_debt >= threshold
 
 
 def booking_finance_price(booking: Booking, barber: Barber | None = None) -> int:
@@ -53,7 +59,7 @@ def booking_financial_preview(booking: Booking, barber: Barber | None = None) ->
     service_price = booking_finance_price(booking, source_barber)
     has_snapshot = (
         booking.status == "completed"
-        and (booking.service_price > 0 or booking.barber_earning > 0 or booking.commission_charged or booking.commission_percent > 0)
+        and (booking.commission_amount > 0 or booking.barber_earning > 0 or booking.commission_charged or booking.commission_percent > 0)
     )
     percent = (
         booking.commission_percent
@@ -560,3 +566,446 @@ def get_admin_barber_finance(db: Session, barber_id: int) -> AdminBarberFinanceR
         transactions=transactions,
         settlements=settlements,
     )
+
+
+def create_demo_transaction(
+    db: Session,
+    *,
+    barber_id: int,
+    transaction_type: str,
+    amount: int,
+    balance_before: int,
+    balance_after: int,
+    debt_before: int,
+    debt_after: int,
+    description: str,
+    booking_id: int | None = None,
+) -> DemoBarberTransaction:
+    transaction = DemoBarberTransaction(
+        barber_id=barber_id,
+        booking_id=booking_id,
+        type=transaction_type,
+        amount=amount,
+        balance_before=balance_before,
+        balance_after=balance_after,
+        debt_before=debt_before,
+        debt_after=debt_after,
+        description=description,
+    )
+    db.add(transaction)
+    return transaction
+
+
+def _apply_demo_commission_charge(
+    db: Session,
+    barber: Barber,
+    *,
+    amount: int,
+    description: str,
+    booking_id: int | None = None,
+) -> int:
+    if amount <= 0:
+        return 0
+
+    balance_before = barber.demo_balance
+    debt_before = barber.demo_debt
+    shortage = max(amount - barber.demo_balance, 0)
+    barber.demo_balance = max(barber.demo_balance - amount, 0)
+    if shortage > 0:
+        barber.demo_debt += shortage
+    apply_financial_blocking(barber)
+
+    create_demo_transaction(
+        db,
+        barber_id=barber.id,
+        booking_id=booking_id,
+        transaction_type="demo_commission_charge",
+        amount=amount,
+        balance_before=balance_before,
+        balance_after=barber.demo_balance,
+        debt_before=debt_before,
+        debt_after=barber.demo_debt,
+        description=description,
+    )
+    if shortage > 0:
+        create_demo_transaction(
+            db,
+            barber_id=barber.id,
+            booking_id=booking_id,
+            transaction_type="demo_debt_created",
+            amount=shortage,
+            balance_before=barber.demo_balance,
+            balance_after=barber.demo_balance,
+            debt_before=debt_before,
+            debt_after=barber.demo_debt,
+            description="Demo commission shortage converted to demo debt",
+        )
+    return shortage
+
+
+def get_demo_barber_finance(db: Session, barber: Barber, summary_date: date | None = None) -> DemoBarberFinanceRead:
+    from app.services.booking_service import tashkent_now
+
+    target_date = summary_date or tashkent_now().date()
+    bookings = list(
+        db.scalars(
+            select(Booking)
+            .options(selectinload(Booking.service), selectinload(Booking.barber))
+            .where(Booking.barber_id == barber.id, Booking.booking_date == target_date, Booking.status == "completed")
+        ).all()
+    )
+    gross_revenue = 0
+    commission_total = 0
+    barber_earning_total = 0
+    for booking in bookings:
+        service_price, _, commission_amount, barber_earning = booking_financial_preview(booking, barber)
+        gross_revenue += service_price
+        commission_total += commission_amount
+        barber_earning_total += barber_earning
+
+    return DemoBarberFinanceRead(
+        demo_balance=barber.demo_balance,
+        demo_debt=barber.demo_debt,
+        commission_percent=effective_commission_percent(barber),
+        today_completed_bookings=len(bookings),
+        today_gross_revenue=gross_revenue,
+        today_commission=commission_total,
+        today_net_earning=barber_earning_total,
+        is_financially_blocked=barber.is_financially_blocked,
+    )
+
+
+def list_demo_barber_transactions(db: Session, barber_id: int, limit: int = 100) -> list[DemoBarberTransaction]:
+    return list(
+        db.scalars(
+            select(DemoBarberTransaction)
+            .where(DemoBarberTransaction.barber_id == barber_id)
+            .order_by(DemoBarberTransaction.created_at.desc(), DemoBarberTransaction.id.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+def top_up_demo_barber_balance(db: Session, barber: Barber, amount: int) -> DemoBarberFinanceRead:
+    barber = db.scalar(select(Barber).where(Barber.id == barber.id).with_for_update()) or barber
+    remaining = amount
+
+    if barber.demo_debt > 0:
+        paid = min(remaining, barber.demo_debt)
+        if paid > 0:
+            balance_before = barber.demo_balance
+            debt_before = barber.demo_debt
+            barber.demo_debt -= paid
+            remaining -= paid
+            create_demo_transaction(
+                db,
+                barber_id=barber.id,
+                transaction_type="demo_debt_paid",
+                amount=paid,
+                balance_before=balance_before,
+                balance_after=barber.demo_balance,
+                debt_before=debt_before,
+                debt_after=barber.demo_debt,
+                description="Demo top-up used to pay debt",
+            )
+
+    if remaining > 0:
+        balance_before = barber.demo_balance
+        debt_before = barber.demo_debt
+        barber.demo_balance += remaining
+        create_demo_transaction(
+            db,
+            barber_id=barber.id,
+            transaction_type="demo_top_up",
+            amount=remaining,
+            balance_before=balance_before,
+            balance_after=barber.demo_balance,
+            debt_before=debt_before,
+            debt_after=barber.demo_debt,
+            description="Demo balance top-up. Real payment is not connected.",
+        )
+
+    apply_financial_blocking(barber)
+    _send_finance_notification(
+        db,
+        barber,
+        "top_up_success",
+        "Demo balans to'ldirildi",
+        f"Demo hisobingiz {amount:,} UZS ga to'ldirildi. Real to'lov ulanmagan.",
+    )
+    db.commit()
+    db.refresh(barber)
+    return get_demo_barber_finance(db, barber)
+
+
+def run_demo_daily_settlement(db: Session, settlement_date: date | None = None) -> DemoDailySettlementRunResponse:
+    from app.services.booking_service import tashkent_now
+
+    target_date = settlement_date or tashkent_now().date()
+    now = tashkent_now()
+    settlements: list[DemoDailySettlement] = []
+    total_bookings = 0
+    total_commission = 0
+    total_debt_created = 0
+
+    barber_ids = list(db.scalars(select(Barber.id).order_by(Barber.id)).all())
+    for barber_id in barber_ids:
+        barber = db.scalar(select(Barber).where(Barber.id == barber_id).with_for_update())
+        if not barber:
+            continue
+        bookings = list(
+            db.scalars(
+                select(Booking)
+                .options(selectinload(Booking.service), selectinload(Booking.barber))
+                .where(
+                    Booking.barber_id == barber.id,
+                    Booking.booking_date == target_date,
+                    Booking.status == "completed",
+                    Booking.commission_charged.is_(False),
+                )
+                .order_by(Booking.id)
+                .with_for_update()
+            ).all()
+        )
+        if not bookings:
+            continue
+
+        gross_revenue, commission_total, barber_earning_total = _daily_totals(bookings, barber)
+        balance_before = barber.demo_balance
+        settlement = DemoDailySettlement(
+            barber_id=barber.id,
+            date=target_date,
+            total_completed_bookings=len(bookings),
+            gross_revenue=gross_revenue,
+            commission_total=commission_total,
+            barber_earning_total=barber_earning_total,
+            balance_before=balance_before,
+            balance_after=balance_before,
+            debt_created=0,
+            status="pending",
+        )
+        db.add(settlement)
+        db.flush()
+
+        debt_created = _apply_demo_commission_charge(
+            db,
+            barber,
+            amount=commission_total,
+            description=f"Demo daily commission settlement for {target_date.isoformat()}",
+        )
+        for booking in bookings:
+            booking.commission_charged = True
+            booking.commission_charged_at = now
+
+        settlement.balance_after = barber.demo_balance
+        settlement.debt_created = debt_created
+        settlement.status = "completed"
+        settlement.completed_at = now
+        settlements.append(settlement)
+
+        total_bookings += len(bookings)
+        total_commission += commission_total
+        total_debt_created += debt_created
+
+        _send_finance_notification(
+            db,
+            barber,
+            "settlement_completed",
+            "Demo komissiya hisoblandi",
+            "Bugungi platforma komissiyasi hisoblandi.",
+        )
+        if debt_created > 0:
+            _send_finance_notification(
+                db,
+                barber,
+                "debt_created",
+                "Demo qarzdorlik mavjud",
+                "Balansingizni to'ldiring. Platforma komissiyasi uchun qarzdorlik mavjud.",
+            )
+        elif settings.financial_block_threshold > 0 and barber.demo_balance < settings.financial_block_threshold:
+            _send_finance_notification(
+                db,
+                barber,
+                "balance_low",
+                "Demo balans kam",
+                "Balansingiz kamayib qoldi. Platforma komissiyasi uchun hisobni to'ldiring.",
+            )
+
+    db.commit()
+    for settlement in settlements:
+        db.refresh(settlement)
+
+    return DemoDailySettlementRunResponse(
+        date=target_date,
+        settlements_created=len(settlements),
+        bookings_charged=total_bookings,
+        commission_total=total_commission,
+        debt_created=total_debt_created,
+        settlements=settlements,
+    )
+
+
+def get_admin_demo_finance_overview(db: Session) -> AdminDemoFinanceOverview:
+    from app.services.booking_service import tashkent_now
+
+    today = tashkent_now().date()
+    month_start = today.replace(day=1)
+    completed_today = list(
+        db.scalars(
+            select(Booking)
+            .options(selectinload(Booking.barber), selectinload(Booking.service))
+            .where(Booking.booking_date == today, Booking.status == "completed")
+        ).all()
+    )
+    completed_month = list(
+        db.scalars(
+            select(Booking)
+            .options(selectinload(Booking.barber), selectinload(Booking.service))
+            .where(Booking.booking_date >= month_start, Booking.booking_date <= today, Booking.status == "completed")
+        ).all()
+    )
+    unsettled = list(
+        db.scalars(
+            select(Booking)
+            .options(selectinload(Booking.barber), selectinload(Booking.service))
+            .where(Booking.status == "completed", Booking.commission_charged.is_(False))
+        ).all()
+    )
+
+    _, today_commission, _ = _completed_financials(completed_today)
+    _, month_commission, _ = _completed_financials(completed_month)
+    _, unsettled_commission, _ = _completed_financials(unsettled)
+    total_debt = db.scalar(select(func.coalesce(func.sum(Barber.demo_debt), 0))) or 0
+    total_topups = (
+        db.scalar(
+            select(func.coalesce(func.sum(DemoBarberTransaction.amount), 0)).where(
+                DemoBarberTransaction.type.in_(("demo_top_up", "demo_debt_paid"))
+            )
+        )
+        or 0
+    )
+
+    top_by_barber: dict[int, FinanceTopBarber] = {}
+    for booking in completed_month:
+        barber = booking.barber
+        if not barber:
+            continue
+        service_price, _, commission_amount, _ = booking_financial_preview(booking, barber)
+        current = top_by_barber.get(barber.id)
+        if current is None:
+            current = FinanceTopBarber(
+                barber_id=barber.id,
+                full_name=barber.full_name,
+                gross_revenue=0,
+                completed_bookings=0,
+                commission_total=0,
+            )
+            top_by_barber[barber.id] = current
+        current.gross_revenue += service_price
+        current.completed_bookings += 1
+        current.commission_total += commission_amount
+
+    debtors = list(
+        db.scalars(select(Barber).where(Barber.demo_debt > 0).order_by(Barber.demo_debt.desc(), Barber.full_name)).all()
+    )
+    return AdminDemoFinanceOverview(
+        total_platform_commission_today=today_commission,
+        total_platform_commission_month=month_commission,
+        total_barber_debt=total_debt,
+        total_demo_topups=total_topups,
+        unsettled_commissions=unsettled_commission,
+        top_earning_barbers=sorted(top_by_barber.values(), key=lambda item: item.gross_revenue, reverse=True)[:5],
+        barbers_with_debt=[
+            DemoBarberDebtItem(
+                barber_id=barber.id,
+                full_name=barber.full_name,
+                demo_balance=barber.demo_balance,
+                demo_debt=barber.demo_debt,
+                is_financially_blocked=barber.is_financially_blocked,
+            )
+            for barber in debtors[:20]
+        ],
+    )
+
+
+def get_admin_demo_barber_finance(db: Session, barber_id: int) -> AdminDemoBarberFinanceRead:
+    from fastapi import HTTPException
+
+    barber = db.get(Barber, barber_id)
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    bookings = list(
+        db.scalars(
+            select(Booking)
+            .options(selectinload(Booking.barber), selectinload(Booking.service))
+            .where(Booking.barber_id == barber.id, Booking.status == "completed")
+        ).all()
+    )
+    gross_revenue, _, _ = _completed_financials(bookings, barber)
+    unsettled_bookings = [booking for booking in bookings if not booking.commission_charged]
+    _, unsettled_commission, _ = _completed_financials(unsettled_bookings, barber)
+    commission_paid = (
+        db.scalar(
+            select(func.coalesce(func.sum(DemoBarberTransaction.amount), 0)).where(
+                DemoBarberTransaction.barber_id == barber.id,
+                DemoBarberTransaction.type == "demo_commission_charge",
+            )
+        )
+        or 0
+    )
+    settlements = list(
+        db.scalars(
+            select(DemoDailySettlement)
+            .where(DemoDailySettlement.barber_id == barber.id)
+            .order_by(DemoDailySettlement.date.desc(), DemoDailySettlement.id.desc())
+            .limit(60)
+        ).all()
+    )
+    return AdminDemoBarberFinanceRead(
+        barber_id=barber.id,
+        full_name=barber.full_name,
+        demo_balance=barber.demo_balance,
+        demo_debt=barber.demo_debt,
+        commission_percent=effective_commission_percent(barber),
+        is_financially_blocked=barber.is_financially_blocked,
+        total_revenue=gross_revenue,
+        commission_paid=commission_paid,
+        unsettled_commission=unsettled_commission,
+        transactions=list_demo_barber_transactions(db, barber.id),
+        settlements=settlements,
+    )
+
+
+def adjust_demo_barber_balance(db: Session, barber_id: int, amount: int, description: str) -> AdminDemoBarberFinanceRead:
+    barber = db.scalar(select(Barber).where(Barber.id == barber_id).with_for_update())
+    if not barber:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Barber not found")
+
+    balance_before = barber.demo_balance
+    debt_before = barber.demo_debt
+    if amount > 0:
+        barber.demo_balance += amount
+    else:
+        deduction = abs(amount)
+        if deduction <= barber.demo_balance:
+            barber.demo_balance -= deduction
+        else:
+            shortage = deduction - barber.demo_balance
+            barber.demo_balance = 0
+            barber.demo_debt += shortage
+    apply_financial_blocking(barber)
+    create_demo_transaction(
+        db,
+        barber_id=barber.id,
+        transaction_type="demo_adjustment",
+        amount=amount,
+        balance_before=balance_before,
+        balance_after=barber.demo_balance,
+        debt_before=debt_before,
+        debt_after=barber.demo_debt,
+        description=description,
+    )
+    db.commit()
+    return get_admin_demo_barber_finance(db, barber.id)
