@@ -5,6 +5,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 
 import { getBarberBalance, getBarberDashboard, getBarberTransactions, topUpBarberBalance } from "../../api/bookings";
 import { PrimaryButton } from "../../components/PrimaryButton";
+import { ResponsiveText } from "../../components/ResponsiveText";
+import { MoneyText } from "../../components/MoneyText";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import type { BarberStackParamList } from "../../navigation/types";
@@ -123,8 +125,8 @@ export function BarberDashboardScreen() {
 
           {/* Revenue panel */}
           <View style={[styles.revenueCard, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
-            <Text style={[styles.revenueLabel, { color: theme.colors.muted }]}>Demo finance - real to'lov ulanmagan</Text>
-            <Text style={[styles.revenueValue, { color: theme.colors.gold }]}>{money(balance?.today_gross_revenue ?? data.today_revenue)}</Text>
+            <Text style={[styles.revenueLabel, { color: theme.colors.muted }]} numberOfLines={1}>Demo finance - real to'lov ulanmagan</Text>
+            <MoneyText amount={balance?.today_gross_revenue ?? data.today_revenue} color="gold" style={styles.revenueValue} />
             <View style={[styles.revenueDivider, { backgroundColor: theme.colors.line }]} />
             <Text style={[styles.revenueWeek, { color: theme.colors.muted }]}>
               Bu alpha test uchun ichki hisob-kitob. Komissiya {balance?.commission_percent ?? 10}%.
@@ -146,12 +148,12 @@ export function BarberDashboardScreen() {
               ) : null}
 
               <View style={styles.financeGrid}>
-                <FinanceCard label="Demo balans" value={money(balance.demo_balance)} icon="wallet-outline" dark />
-                <FinanceCard label="Qarzdorlik" value={money(balance.demo_debt)} icon="alert-circle-outline" danger={balance.demo_debt > 0} />
-                <FinanceCard label="Bugungi tushum" value={money(balance.today_gross_revenue)} icon="cash-outline" />
-                <FinanceCard label={`Komissiya ${balance.commission_percent}%`} value={money(balance.today_commission)} icon="receipt-outline" />
-                <FinanceCard label="Toza daromad" value={money(balance.today_net_earning)} icon="trending-up-outline" success />
-                <FinanceCard label="Tugallangan" value={`${balance.today_completed_bookings} ta`} icon="checkmark-done-outline" />
+                <FinanceCard label="Demo balans" value={balance.demo_balance} icon="wallet-outline" dark />
+                <FinanceCard label="Qarzdorlik" value={balance.demo_debt} icon="alert-circle-outline" danger={balance.demo_debt > 0} />
+                <FinanceCard label="Bugungi tushum" value={balance.today_gross_revenue} icon="cash-outline" />
+                <FinanceCard label={`Komissiya ${balance.commission_percent}%`} value={balance.today_commission} icon="receipt-outline" />
+                <FinanceCard label="Toza daromad" value={balance.today_net_earning} icon="trending-up-outline" success />
+                <FinanceCard label="Tugallangan" value={balance.today_completed_bookings} icon="checkmark-done-outline" isCount />
               </View>
 
               <View style={[styles.topUpCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
@@ -203,11 +205,11 @@ export function BarberDashboardScreen() {
                   <Text style={[styles.transactionMeta, { color: theme.colors.subtle }]}>
                     Balans: {money(item.balance_before)} - {money(item.balance_after)}
                   </Text>
-                  <Text style={[styles.transactionMeta, { color: theme.colors.subtle }]}>
+                  <Text style={[styles.transactionMeta, { color: theme.colors.subtle }]} numberOfLines={1}>
                     Qarz: {money(item.debt_before)} - {money(item.debt_after)}
                   </Text>
                 </View>
-                <Text style={[styles.transactionAmount, { color: theme.colors.gold }]}>{money(item.amount)}</Text>
+                <MoneyText amount={item.amount} color="gold" style={styles.transactionAmount} />
               </View>
             ))}
           </View>
@@ -224,13 +226,15 @@ function FinanceCard({
   dark = false,
   danger = false,
   success = false,
+  isCount = false,
 }: {
   label: string;
-  value: string;
+  value: number;
   icon: keyof typeof Ionicons.glyphMap;
   dark?: boolean;
   danger?: boolean;
   success?: boolean;
+  isCount?: boolean;
 }) {
   const { theme } = useTheme();
   const cardColors = danger
@@ -245,8 +249,12 @@ function FinanceCard({
   return (
     <View style={[styles.financeCard, cardColors]}>
       <Ionicons name={icon} color={tint} size={20} />
-      <Text style={[styles.financeValue, { color: dark ? theme.colors.gold : danger ? theme.colors.danger : theme.colors.text }]}>{value}</Text>
-      <Text style={[styles.financeLabel, { color: theme.colors.muted }]}>{label}</Text>
+      {isCount ? (
+        <Text style={[styles.financeValue, { color: dark ? theme.colors.gold : danger ? theme.colors.danger : theme.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{value} ta</Text>
+      ) : (
+        <MoneyText amount={value} color={danger ? "danger" : dark ? "gold" : "text"} style={styles.financeValue} compact />
+      )}
+      <Text style={[styles.financeLabel, { color: theme.colors.muted }]} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
     </View>
   );
 }
@@ -284,10 +292,10 @@ function MetricCard({
         size={22}
         color={tintColor}
       />
-      <Text style={[styles.metricValue, { color: dark ? theme.colors.gold : success ? theme.colors.success : theme.colors.text }]}>
+      <Text style={[styles.metricValue, { color: dark ? theme.colors.gold : success ? theme.colors.success : theme.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
-      <Text style={[styles.metricLabel, { color: theme.colors.muted }]}>
+      <Text style={[styles.metricLabel, { color: theme.colors.muted }]} numberOfLines={1} adjustsFontSizeToFit>
         {label}
       </Text>
     </View>

@@ -11,6 +11,7 @@ import { PremiumCard } from "../../components/PremiumCard";
 import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
+import { ResponsiveText } from "../../components/ResponsiveText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import type { PublicStackParamList } from "../../navigation/types";
@@ -111,8 +112,8 @@ export function CustomerCabinetScreen({ navigation, route }: Props) {
             <View style={[styles.logo, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
               <Ionicons name="person-circle-outline" size={46} color={theme.colors.gold} />
             </View>
-            <Text style={[styles.title, { color: theme.colors.text }]}>Mijoz kabineti</Text>
-            <Text style={[styles.subtitle, { color: theme.colors.muted }]}>Bookinglaringizni boshqaring</Text>
+            <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>Mijoz kabineti</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.muted }]} numberOfLines={1} adjustsFontSizeToFit>Bookinglaringizni boshqaring</Text>
             {pendingClaimCode ? (
               <Text style={[styles.claimHint, { color: theme.colors.gold }]}>
                 {pendingClaimCode} kodi login/registerdan keyin kabinetga ulanadi.
@@ -266,16 +267,16 @@ function BookingCard({
     <PremiumCard gold={!history} style={styles.bookingCard}>
       <View style={styles.bookingRow}>
         <View style={styles.bookingText}>
-          <Text style={[styles.bookingTitle, { color: theme.colors.text }]} numberOfLines={1}>
+          <ResponsiveText variant="section" color="text" numberOfLines={2}>
             {booking.barber_name || "Barber"}
-          </Text>
-          <Text style={[styles.bookingMeta, { color: theme.colors.muted }]} numberOfLines={2}>
+          </ResponsiveText>
+          <ResponsiveText variant="small" color="muted" numberOfLines={2} style={{ marginTop: 2 }}>
             {formatDateLong(booking.booking_date)} · {formatTime(booking.booking_time)}
-          </Text>
+          </ResponsiveText>
           {booking.service_name ? (
-            <Text style={[styles.bookingService, { color: theme.colors.gold }]} numberOfLines={1}>
+            <ResponsiveText variant="small" color="gold" numberOfLines={2} style={{ marginTop: 2 }}>
               {booking.service_name}
-            </Text>
+            </ResponsiveText>
           ) : null}
         </View>
         <StatusBadge status={booking.status} />

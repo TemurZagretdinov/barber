@@ -89,10 +89,10 @@ function RoleButton({
             <Ionicons name={icon} size={26} color={primary ? theme.colors.gold : theme.colors.gold} />
           </View>
           <View style={styles.roleTextWrap}>
-            <Text style={[styles.roleTitle, { color: primary ? theme.colors.onGold : theme.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+            <Text style={[styles.roleTitle, { color: primary ? theme.colors.onGold : theme.colors.text }]} numberOfLines={2} adjustsFontSizeToFit>
               {title}
             </Text>
-            <Text style={[styles.roleSubtitle, { color: primary ? theme.colors.onGold : theme.colors.muted }]} numberOfLines={2}>
+            <Text style={[styles.roleSubtitle, { color: primary ? theme.colors.onGold : theme.colors.muted }]} numberOfLines={2} adjustsFontSizeToFit>
               {subtitle}
             </Text>
           </View>
@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "600",
     textAlign: "center",
+    paddingHorizontal: 20,
   },
   roles: {
     gap: 12,

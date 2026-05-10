@@ -87,7 +87,7 @@ function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
     <View style={styles.infoRow}>
       <Ionicons name={icon} size={14} color={theme.colors.muted} />
       <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: theme.colors.text }]} numberOfLines={2}>{value}</Text>
+      <Text style={[styles.infoValue, { color: theme.colors.text }]} numberOfLines={3} ellipsizeMode="tail" adjustsFontSizeToFit>{value}</Text>
     </View>
   );
 }

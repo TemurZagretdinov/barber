@@ -7,6 +7,8 @@ import { createBooking } from "../../api/bookings";
 import { BarberCard, barberName } from "../../components/BarberCard";
 import { LuxuryInput } from "../../components/LuxuryInput";
 import { PrimaryButton } from "../../components/PrimaryButton";
+import { ResponsiveText } from "../../components/ResponsiveText";
+import { MoneyText } from "../../components/MoneyText";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import type { PublicStackParamList } from "../../navigation/types";
 import { clearBookingDraft } from "../../store/bookingDraftStore";
@@ -75,8 +77,8 @@ export function BookingDetailsScreen({ navigation, route }: Props) {
           <View style={[styles.summaryDivider, { backgroundColor: theme.colors.line }]} />
           <View style={styles.summaryRow}>
             <Ionicons name="cut-outline" size={14} color={theme.colors.muted} />
-            <Text style={[styles.summaryText, { color: theme.colors.text }]}>{service.name}</Text>
-            <Text style={[styles.summaryValue, { color: theme.colors.gold }]}>{Math.round(service.price).toLocaleString()} so'm</Text>
+            <ResponsiveText variant="body" color="text" numberOfLines={2} style={{ flex: 1 }}>{service.name}</ResponsiveText>
+            <MoneyText amount={service.price} color="gold" compact style={{ marginLeft: 8 }} />
           </View>
           <View style={styles.summaryRow}>
             <Ionicons name="calendar-outline" size={14} color={theme.colors.muted} />
@@ -184,13 +186,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   summaryText: {
-    color: colors.text,
     fontWeight: "600",
     fontSize: 14,
-    flex: 1,
+    flexShrink: 1,
   },
   summaryValue: {
-    color: colors.gold,
     fontWeight: "700",
     fontSize: 13,
   },

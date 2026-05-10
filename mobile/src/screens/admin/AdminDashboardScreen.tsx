@@ -2,12 +2,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { getAdminDashboard, getAdminFinanceOverview, runAdminSettlement } from "../../api/bookings";
 import { AdminPageHeader, AdminPanel, AdminSectionHeader } from "../../components/admin/AdminPanel";
 import { adminColors, adminSpacing, adminTypography } from "../../components/admin/adminTheme";
 import { PrimaryButton } from "../../components/PrimaryButton";
+import { ResponsiveText } from "../../components/ResponsiveText";
+import { MoneyText } from "../../components/MoneyText";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import type { RootStackParamList } from "../../navigation/types";
@@ -138,17 +140,17 @@ export function AdminDashboardScreen() {
                 />
               </View>
               <View style={styles.financeGrid}>
-                <FinanceMetric label="Bugun" value={money(finance.total_platform_commission_today)} icon="receipt-outline" />
-                <FinanceMetric label="Oy" value={money(finance.total_platform_commission_month)} icon="trending-up-outline" />
-                <FinanceMetric label="Qarz" value={money(finance.total_barber_debt)} icon="wallet-outline" danger={finance.total_barber_debt > 0} />
-                <FinanceMetric label="Unsettled" value={money(finance.unsettled_commissions)} icon="hourglass-outline" />
+                <FinanceMetric label="Bugun" value={finance.total_platform_commission_today} icon="receipt-outline" />
+                <FinanceMetric label="Oy" value={finance.total_platform_commission_month} icon="trending-up-outline" />
+                <FinanceMetric label="Qarz" value={finance.total_barber_debt} icon="wallet-outline" danger={finance.total_barber_debt > 0} />
+                <FinanceMetric label="Unsettled" value={finance.unsettled_commissions} icon="hourglass-outline" />
               </View>
               {finance.barbers_with_debt.length > 0 ? (
                 <View style={styles.debtList}>
                   {finance.barbers_with_debt.slice(0, 5).map((item) => (
                     <View key={item.barber_id} style={[styles.debtRow, { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine }]}>
-                      <Text style={[styles.debtName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name}</Text>
-                      <Text style={[styles.debtAmount, { color: theme.colors.warning }]}>{money(item.demo_debt)}</Text>
+                      <Text style={[styles.debtName, { color: theme.colors.text }]} numberOfLines={2}>{item.full_name}</Text>
+                      <MoneyText amount={item.demo_debt} color="warning" compact />
                     </View>
                   ))}
                 </View>
@@ -171,7 +173,7 @@ export function AdminDashboardScreen() {
                     <View style={[styles.track, { backgroundColor: theme.colors.elevated }]}>
                       <View style={[styles.trackFill, { backgroundColor: theme.colors.gold, width: `${Math.min(progress * 100, 100)}%` }]} />
                     </View>
-                    <Text style={[styles.revenueMeta, { color: theme.colors.muted }]}>{item.revenue.toLocaleString()} UZS</Text>
+                    <MoneyText amount={item.revenue} color="muted" style={styles.revenueMeta} />
                   </View>
                 );
               })}
@@ -193,7 +195,7 @@ function FinanceMetric({
   danger = false,
 }: {
   label: string;
-  value: string;
+  value: number;
   icon: keyof typeof Ionicons.glyphMap;
   danger?: boolean;
 }) {
@@ -201,8 +203,8 @@ function FinanceMetric({
   return (
     <View style={[styles.financeMetric, { backgroundColor: danger ? theme.colors.dangerBg : theme.colors.card, borderColor: danger ? theme.colors.dangerLine : theme.colors.line }]}>
       <Ionicons name={icon} color={danger ? theme.colors.danger : theme.colors.gold} size={20} />
-      <Text style={[styles.financeValue, { color: danger ? theme.colors.danger : theme.colors.text }]}>{value}</Text>
-      <Text style={[styles.financeLabel, { color: theme.colors.muted }]}>{label}</Text>
+      <MoneyText amount={value} color={danger ? "danger" : "text"} style={styles.financeValue} compact />
+      <Text style={[styles.financeLabel, { color: theme.colors.muted }]} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
     </View>
   );
 }

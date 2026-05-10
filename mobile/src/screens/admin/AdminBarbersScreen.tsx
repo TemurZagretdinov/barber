@@ -8,7 +8,9 @@ import { createAdminBarber, getAdminBarbers } from "../../api/barbers";
 import { barberImage, barberName, barberRating, barberSpecialty } from "../../components/BarberCard";
 import { AdminPageHeader, AdminPanel } from "../../components/admin/AdminPanel";
 import { adminColors, adminRadius, adminSpacing, adminTypography } from "../../components/admin/adminTheme";
+import { MoneyText } from "../../components/MoneyText";
 import { PrimaryButton } from "../../components/PrimaryButton";
+import { ResponsiveText } from "../../components/ResponsiveText";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { useTheme } from "../../theme/theme";
 import type { Barber } from "../../types/barber";
@@ -117,7 +119,9 @@ export function AdminBarbersScreen() {
             <Image source={{ uri: barberImage(barber) }} style={[styles.avatar, { backgroundColor: theme.colors.elevated }]} />
             <View style={styles.info}>
               <View style={styles.nameRow}>
-                <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={1}>{barberName(barber)}</Text>
+                <ResponsiveText variant="section" color="text" numberOfLines={2} style={styles.barberName}>
+                  {barberName(barber)}
+                </ResponsiveText>
                 <View style={styles.rating}>
                   <Ionicons name="star" color="#f59e0b" size={14} />
                   <Text style={[styles.ratingText, { color: theme.colors.muted }]}>{barberRating(barber).toFixed(1)}</Text>
@@ -127,9 +131,11 @@ export function AdminBarbersScreen() {
               <Text style={[styles.meta, { color: theme.colors.subtle }]} numberOfLines={2}>
                 {barber.years_experience ?? 0} yrs exp - {barber.email} - {barber.total_bookings ?? 0} total bookings
               </Text>
-              <Text style={[styles.financeMeta, { color: (barber.demo_debt ?? barber.debt ?? 0) > 0 ? theme.colors.danger : theme.colors.gold }]} numberOfLines={1}>
-                Demo balans {(barber.demo_balance ?? barber.balance ?? 0).toLocaleString()} UZS - Qarz {(barber.demo_debt ?? barber.debt ?? 0).toLocaleString()} UZS
-              </Text>
+              <View style={styles.financeContainer}>
+                <Text style={[styles.financeMeta, { color: (barber.demo_debt ?? barber.debt ?? 0) > 0 ? theme.colors.danger : theme.colors.gold }]} numberOfLines={1}>
+                  Balans: <MoneyText amount={barber.demo_balance ?? barber.balance ?? 0} color="gold" compact /> - Qarz: <MoneyText amount={barber.demo_debt ?? barber.debt ?? 0} color="danger" compact />
+                </Text>
+              </View>
             </View>
             <View style={[styles.todayBox, { backgroundColor: theme.colors.goldSoft }]}>
               <Text style={[styles.todayValue, { color: theme.colors.gold }]}>{barber.today_bookings ?? 0}</Text>
@@ -296,9 +302,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: adminSpacing.sm,
   },
-  name: {
-    ...adminTypography.cardTitle,
-    flex: 1,
+  barberName: {
+    fontSize: 16,
+    fontWeight: "800",
+    flexShrink: 1,
   },
   rating: {
     flexDirection: "row",
@@ -318,9 +325,11 @@ const styles = StyleSheet.create({
     ...adminTypography.label,
     marginTop: 6,
   },
+  financeContainer: {
+    marginTop: 5,
+  },
   financeMeta: {
     ...adminTypography.label,
-    marginTop: 5,
     fontWeight: "800",
   },
   todayBox: {

@@ -74,7 +74,7 @@ export function BarberCard({
       </View>
       <View style={styles.content}>
         <View style={styles.nameRow}>
-          <Text style={[styles.name, { color: theme.colors.text }, compact && styles.compactName]} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={[styles.name, { color: theme.colors.text }, compact && styles.compactName]} numberOfLines={compact ? 1 : 2} ellipsizeMode="tail">
             {barberName(barber)}
           </Text>
           {!compact && (
@@ -92,7 +92,7 @@ export function BarberCard({
               <Ionicons name="star" size={13} color={theme.colors.gold} />
               <Text style={[styles.ratingText, { color: theme.colors.gold }]}>{barberRating(barber).toFixed(1)}</Text>
             </View>
-            <Text style={[styles.priceBadge, { color: theme.colors.gold }]} numberOfLines={1}>
+            <Text style={[styles.priceBadge, { color: theme.colors.gold }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
               {barberDistance(barber) ?? barberPrice(barber) ?? detail}
             </Text>
           </View>
@@ -156,6 +156,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.2,
+    flexShrink: 1,
   },
   compactName: {
     fontSize: 15,

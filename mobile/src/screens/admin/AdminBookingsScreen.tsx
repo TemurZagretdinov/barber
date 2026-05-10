@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { getAdminBookings, updateBookingStatus } from "../../api/bookings";
 import { AdminPageHeader, AdminPanel } from "../../components/admin/AdminPanel";
 import { adminColors, adminRadius, adminSpacing, adminTypography } from "../../components/admin/adminTheme";
+import { ResponsiveText } from "../../components/ResponsiveText";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useTheme } from "../../theme/theme";
@@ -96,9 +97,13 @@ export function AdminBookingsScreen() {
         {bookings.map((booking) => (
           <AdminPanel key={booking.id} style={styles.bookingCard}>
             <View style={styles.row}>
-              <View style={styles.clientBlock}>
-                <Text style={[styles.client, { color: theme.colors.text }]} numberOfLines={1}>{booking.client_name}</Text>
-                <Text style={[styles.muted, { color: theme.colors.muted }]} numberOfLines={1}>{booking.client_phone}</Text>
+              <View style={{ flex: 1 }}>
+                <ResponsiveText variant="section" color="text" numberOfLines={2} style={styles.bookingTitle}>
+                  {booking.client_name || "Mijoz"}
+                </ResponsiveText>
+                <ResponsiveText variant="small" color="muted" numberOfLines={2} style={styles.bookingMeta}>
+                  {booking.client_phone || "-"}
+                </ResponsiveText>
                 <Text style={[styles.idText, { color: theme.colors.subtle }]}>ID #{booking.id}</Text>
               </View>
               <StatusBadge status={booking.status} />
@@ -153,6 +158,19 @@ const styles = StyleSheet.create({
   summaryPanel: {
     marginBottom: adminSpacing.md,
     padding: adminSpacing.md,
+  },
+  bookingTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  bookingMeta: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  detailsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: adminSpacing.sm,
   },
   summaryRow: {
     flexDirection: "row",

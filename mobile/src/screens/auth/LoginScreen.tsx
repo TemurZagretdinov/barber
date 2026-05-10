@@ -74,7 +74,7 @@ export function LoginScreen({ navigation, route }: Props) {
           <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={2} adjustsFontSizeToFit>
             {isAdmin ? "Admin Kirish" : "Barber Kirish"}
           </Text>
-          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
+          <Text style={[styles.subtitle, { color: theme.colors.muted }]} numberOfLines={2} adjustsFontSizeToFit>
             {isAdmin ? "Boshqaruv paneliga xavfsiz kirish" : "Kunlik jadvalingizni oching"}
           </Text>
 
@@ -161,6 +161,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     marginTop: -8,
+    paddingHorizontal: 20,
   },
   formCard: {
     gap: 14,

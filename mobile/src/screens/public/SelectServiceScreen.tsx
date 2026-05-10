@@ -8,6 +8,8 @@ import { getPublicBarberServices } from "../../api/barbers";
 import { BarberCard } from "../../components/BarberCard";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
+import { ResponsiveText } from "../../components/ResponsiveText";
+import { MoneyText } from "../../components/MoneyText";
 import type { PublicStackParamList } from "../../navigation/types";
 import { useTheme } from "../../theme/theme";
 import type { BarberService } from "../../types/barber";
@@ -71,13 +73,14 @@ export function SelectServiceScreen({ navigation, route }: Props) {
               <Ionicons name="cut-outline" size={20} color={theme.colors.onGold} />
             </View>
             <View style={styles.serviceBody}>
-              <Text style={[styles.serviceName, { color: theme.colors.text }]}>{service.name}</Text>
+              <ResponsiveText variant="body" color="text" numberOfLines={2} style={{ fontWeight: "800" }}>{service.name}</ResponsiveText>
               {service.description ? (
-                <Text style={[styles.serviceDesc, { color: theme.colors.muted }]} numberOfLines={2}>{service.description}</Text>
+                <ResponsiveText variant="small" color="muted" numberOfLines={2} style={{ marginTop: 2 }}>{service.description}</ResponsiveText>
               ) : null}
-              <Text style={[styles.serviceMeta, { color: theme.colors.gold }]}>
-                {Math.round(service.price).toLocaleString("uz-UZ")} so'm · {service.duration_minutes} min
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                 <MoneyText amount={service.price} color="gold" compact style={{ fontSize: 13 }} />
+                 <Text style={{ color: theme.colors.gold, fontSize: 13, fontWeight: "700" }}>· {service.duration_minutes} min</Text>
+              </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
           </Pressable>

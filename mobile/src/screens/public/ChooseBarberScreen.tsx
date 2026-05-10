@@ -227,7 +227,7 @@ export function ChooseBarberScreen({ navigation, route }: Props) {
           ]}
         >
           <Ionicons name="grid-outline" size={14} color={!sort ? activeInk : theme.colors.muted} />
-          <Text style={[styles.filterText, { color: !sort ? activeInk : theme.colors.muted }]}>Barchasi</Text>
+          <Text style={[styles.filterText, { color: !sort ? activeInk : theme.colors.muted }]} numberOfLines={1}>Barchasi</Text>
         </Pressable>
         {sortOptions.map((option) => {
           const active = sort === option.value;
@@ -242,7 +242,7 @@ export function ChooseBarberScreen({ navigation, route }: Props) {
               ]}
             >
               <Ionicons name={option.icon} size={14} color={active ? activeInk : theme.colors.muted} />
-              <Text style={[styles.filterText, { color: active ? activeInk : theme.colors.muted }]}>{option.label}</Text>
+              <Text style={[styles.filterText, { color: active ? activeInk : theme.colors.muted }]} numberOfLines={1}>{option.label}</Text>
             </Pressable>
           );
         })}
@@ -277,7 +277,7 @@ export function ChooseBarberScreen({ navigation, route }: Props) {
               {location.loading ? (
                 <ActivityIndicator color={theme.colors.gold} size="small" />
               ) : (
-                <Text style={[styles.locationActionText, { color: theme.colors.gold }]}>Yoqish</Text>
+                <Text style={[styles.locationActionText, { color: theme.colors.gold }]} numberOfLines={1}>Yoqish</Text>
               )}
             </Pressable>
           ) : null}
