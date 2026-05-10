@@ -53,6 +53,7 @@ class BarberRead(BarberBase):
     user_id: int
     email: str
     is_active: bool
+    is_financially_blocked: bool = False
     created_at: datetime
     updated_at: datetime
     distance_km: float | None = None
@@ -64,6 +65,9 @@ class BarberRead(BarberBase):
 class BarberAdminRead(BarberRead):
     total_bookings: int = 0
     today_bookings: int = 0
+    balance: int = 0
+    debt: int = 0
+    commission_percent: int = 10
 
 
 class AvailableSlot(BaseModel):

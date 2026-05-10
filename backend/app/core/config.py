@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     seed_secret: str = Field(default="", alias="SEED_SECRET")
     telegram_use_polling: bool = Field(default=False, alias="TELEGRAM_USE_POLLING")
     telegram_bot_token: str = Field(default="", alias="BOT_TOKEN")
+    commission_percent_default: int = Field(default=10, alias="COMMISSION_PERCENT_DEFAULT")
+    financial_block_threshold: int = Field(default=50000, alias="FINANCIAL_BLOCK_THRESHOLD")
+    financial_blocking_enabled: bool = Field(default=True, alias="FINANCIAL_BLOCKING_ENABLED")
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 

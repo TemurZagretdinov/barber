@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, Time, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, Time, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.user import Base
@@ -19,6 +19,12 @@ class Booking(Base):
     booking_time: Mapped[time] = mapped_column(Time, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True, nullable=False)
     price: Mapped[float | None] = mapped_column(Float)
+    service_price: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    commission_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    commission_amount: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    barber_earning: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    commission_charged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    commission_charged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     duration_minutes: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     service_note: Mapped[str | None] = mapped_column(Text)
@@ -34,6 +40,7 @@ class Booking(Base):
     service: Mapped["BarberService | None"] = relationship()
     customer: Mapped["User | None"] = relationship(back_populates="bookings")
     review: Mapped["BookingReview | None"] = relationship(back_populates="booking", cascade="all, delete-orphan")
+    transactions: Mapped[list["BarberTransaction"]] = relationship(back_populates="booking")
 
     @property
     def booking_code(self) -> str:

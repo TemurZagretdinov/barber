@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import { getAdminDashboard } from "../../api/bookings";
+import { getAdminDashboard, getAdminFinanceOverview, runAdminSettlement } from "../../api/bookings";
 import { AdminPageHeader, AdminPanel, AdminSectionHeader } from "../../components/admin/AdminPanel";
 import { adminColors, adminSpacing, adminTypography } from "../../components/admin/adminTheme";
 import { PrimaryButton } from "../../components/PrimaryButton";
@@ -14,6 +14,7 @@ import type { RootStackParamList } from "../../navigation/types";
 import { useAuth } from "../../store/authStore";
 import { useTheme } from "../../theme/theme";
 import type { AdminDashboard } from "../../types/booking";
+import type { AdminFinanceOverview } from "../../types/finance";
 import { formatDateLong, todayISO } from "../../utils/date";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -24,14 +25,18 @@ export function AdminDashboardScreen() {
   const { signOut } = useAuth();
   const { theme } = useTheme();
   const [data, setData] = useState<AdminDashboard | null>(null);
+  const [finance, setFinance] = useState<AdminFinanceOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [settlementBusy, setSettlementBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      setData(await getAdminDashboard());
+      const [nextData, nextFinance] = await Promise.all([getAdminDashboard(), getAdminFinanceOverview()]);
+      setData(nextData);
+      setFinance(nextFinance);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load dashboard");
     } finally {
@@ -48,6 +53,24 @@ export function AdminDashboardScreen() {
   async function logout() {
     await signOut();
     navigation.reset({ index: 0, routes: [{ name: "Public" }] });
+  }
+
+  async function runSettlement() {
+    setSettlementBusy(true);
+    setError("");
+    try {
+      await runAdminSettlement(todayISO());
+      const nextFinance = await getAdminFinanceOverview();
+      setFinance(nextFinance);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Settlement failed");
+    } finally {
+      setSettlementBusy(false);
+    }
+  }
+
+  function money(value: number) {
+    return `${value.toLocaleString()} UZS`;
   }
 
   return (
@@ -103,6 +126,36 @@ export function AdminDashboardScreen() {
             />
           </View>
 
+          {finance ? (
+            <AdminPanel style={styles.financePanel}>
+              <View style={styles.financeHeader}>
+                <AdminSectionHeader title="Finance" subtitle="Komissiya va qarzdorlik" />
+                <PrimaryButton
+                  title={settlementBusy ? "..." : "Settle"}
+                  onPress={runSettlement}
+                  style={styles.settleButton}
+                  icon={<Ionicons name="play-circle-outline" color={theme.colors.onGold} size={18} />}
+                />
+              </View>
+              <View style={styles.financeGrid}>
+                <FinanceMetric label="Bugun" value={money(finance.total_platform_commission_today)} icon="receipt-outline" />
+                <FinanceMetric label="Oy" value={money(finance.total_platform_commission_month)} icon="trending-up-outline" />
+                <FinanceMetric label="Qarz" value={money(finance.total_barber_debt)} icon="wallet-outline" danger={finance.total_barber_debt > 0} />
+                <FinanceMetric label="Unsettled" value={money(finance.unsettled_commissions)} icon="hourglass-outline" />
+              </View>
+              {finance.barbers_with_debt.length > 0 ? (
+                <View style={styles.debtList}>
+                  {finance.barbers_with_debt.slice(0, 5).map((item) => (
+                    <View key={item.barber_id} style={[styles.debtRow, { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine }]}>
+                      <Text style={[styles.debtName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name}</Text>
+                      <Text style={[styles.debtAmount, { color: theme.colors.warning }]}>{money(item.debt)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </AdminPanel>
+          ) : null}
+
           {/* Top barbers */}
           <AdminPanel>
             <AdminSectionHeader title="Top barberlar" subtitle="Bron va tushum bo'yicha" />
@@ -130,6 +183,27 @@ export function AdminDashboardScreen() {
         </View>
       ) : null}
     </ScreenContainer>
+  );
+}
+
+function FinanceMetric({
+  label,
+  value,
+  icon,
+  danger = false,
+}: {
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  danger?: boolean;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.financeMetric, { backgroundColor: danger ? theme.colors.dangerBg : theme.colors.card, borderColor: danger ? theme.colors.dangerLine : theme.colors.line }]}>
+      <Ionicons name={icon} color={danger ? theme.colors.danger : theme.colors.gold} size={20} />
+      <Text style={[styles.financeValue, { color: danger ? theme.colors.danger : theme.colors.text }]}>{value}</Text>
+      <Text style={[styles.financeLabel, { color: theme.colors.muted }]}>{label}</Text>
+    </View>
   );
 }
 
@@ -236,6 +310,60 @@ const styles = StyleSheet.create({
   },
   performanceList: {
     gap: adminSpacing.lg,
+  },
+  financePanel: {
+    gap: adminSpacing.md,
+  },
+  financeHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: adminSpacing.md,
+    alignItems: "center",
+  },
+  settleButton: {
+    minHeight: 42,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+  },
+  financeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: adminSpacing.sm,
+  },
+  financeMetric: {
+    width: "47.5%",
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 7,
+  },
+  financeValue: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  financeLabel: {
+    ...adminTypography.label,
+  },
+  debtList: {
+    gap: 8,
+  },
+  debtRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: adminSpacing.sm,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  debtName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  debtAmount: {
+    fontSize: 13,
+    fontWeight: "800",
   },
   progressHeader: {
     flexDirection: "row",

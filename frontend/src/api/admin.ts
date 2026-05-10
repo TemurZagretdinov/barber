@@ -1,9 +1,32 @@
 import { apiRequest } from "./client";
 import type { AdminBarber, Barber, BarberFormPayload } from "../types/barber";
 import type { AdminDashboard, BookingStatus, BookingWithBarber } from "../types/booking";
+import type { AdminBarberFinance, AdminFinanceOverview, SettlementRunResponse } from "../types/finance";
 
 export function getAdminDashboard() {
   return apiRequest<AdminDashboard>("/admin/dashboard");
+}
+
+export function getAdminFinanceOverview() {
+  return apiRequest<AdminFinanceOverview>("/admin/finance/overview");
+}
+
+export function getAdminBarberFinance(barberId: number) {
+  return apiRequest<AdminBarberFinance>(`/admin/barbers/${barberId}/finance`);
+}
+
+export function runAdminSettlement(date: string) {
+  return apiRequest<SettlementRunResponse>("/admin/settlements/run", {
+    method: "POST",
+    body: JSON.stringify({ date }),
+  });
+}
+
+export function adjustAdminBarberBalance(barberId: number, payload: { amount: number; description: string }) {
+  return apiRequest<AdminBarberFinance>(`/admin/barbers/${barberId}/adjust-balance`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getAdminBarbers() {

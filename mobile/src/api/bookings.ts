@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import type { AdminDashboard, BarberDashboard, Booking, BookingCreate, BookingStatus, BookingWithBarber } from "../types/booking";
+import type { AdminFinanceOverview, BarberBalance, BarberTransaction } from "../types/finance";
 
 export async function createBooking(payload: BookingCreate): Promise<Booking> {
   const response = await apiClient.post<Booking>("/public/bookings", payload);
@@ -13,6 +14,16 @@ export async function findBooking(code: string): Promise<Booking> {
 
 export async function getAdminDashboard(): Promise<AdminDashboard> {
   const response = await apiClient.get<AdminDashboard>("/admin/dashboard");
+  return response.data;
+}
+
+export async function getAdminFinanceOverview(): Promise<AdminFinanceOverview> {
+  const response = await apiClient.get<AdminFinanceOverview>("/admin/finance/overview");
+  return response.data;
+}
+
+export async function runAdminSettlement(date: string) {
+  const response = await apiClient.post("/admin/settlements/run", { date });
   return response.data;
 }
 
@@ -48,6 +59,21 @@ export async function cancelBarberBooking(id: number, note: string): Promise<Boo
 
 export async function getBarberDashboard(date: string): Promise<BarberDashboard> {
   const response = await apiClient.get<BarberDashboard>("/barber/dashboard", { params: { date } });
+  return response.data;
+}
+
+export async function getBarberBalance(): Promise<BarberBalance> {
+  const response = await apiClient.get<BarberBalance>("/barber/balance");
+  return response.data;
+}
+
+export async function getBarberTransactions(): Promise<BarberTransaction[]> {
+  const response = await apiClient.get<BarberTransaction[]>("/barber/transactions");
+  return response.data;
+}
+
+export async function topUpBarberBalance(amount: number): Promise<BarberBalance> {
+  const response = await apiClient.post<BarberBalance>("/barber/balance/top-up", { amount });
   return response.data;
 }
 

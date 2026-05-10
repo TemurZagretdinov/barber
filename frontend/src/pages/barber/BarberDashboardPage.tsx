@@ -1,25 +1,47 @@
-import { Banknote, CalendarDays, CheckCircle2, ChevronRight, Clock3, LogOut, TrendingUp, UsersRound } from "lucide-react";
+import {
+  AlertTriangle,
+  Banknote,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  LogOut,
+  PlusCircle,
+  ReceiptText,
+  TrendingUp,
+  UsersRound,
+  Wallet,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { getBarberDashboard } from "../../api/barber";
+import { getBarberBalance, getBarberDashboard, getBarberTransactions, topUpBarberBalance } from "../../api/barber";
 import { StatusBadge } from "../../components/StatusBadge";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorMessage } from "../../components/ui/ErrorMessage";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { authStore } from "../../store/authStore";
 import type { BarberDashboard } from "../../types/booking";
+import type { BarberBalance, BarberTransaction } from "../../types/finance";
 import { formatDateLong, formatTime, todayISO } from "../../utils/date";
 
 export function BarberDashboardPage() {
   const navigate = useNavigate();
   const [data, setData] = useState<BarberDashboard | null>(null);
+  const [balance, setBalance] = useState<BarberBalance | null>(null);
+  const [transactions, setTransactions] = useState<BarberTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [topUpBusy, setTopUpBusy] = useState(false);
 
   const load = useCallback(() => {
-    getBarberDashboard(todayISO())
-      .then((nextData) => { setData(nextData); setError(""); })
+    Promise.all([getBarberDashboard(todayISO()), getBarberBalance(), getBarberTransactions()])
+      .then(([nextData, nextBalance, nextTransactions]) => {
+        setData(nextData);
+        setBalance(nextBalance);
+        setTransactions(nextTransactions);
+        setError("");
+      })
       .catch(() => setError("Ma'lumotlarni yuklashda xatolik yuz berdi"))
       .finally(() => setLoading(false));
   }, []);
@@ -75,6 +97,40 @@ export function BarberDashboardPage() {
         },
       ]
     : [];
+
+  const financeCards = balance
+    ? [
+        { label: "Balans", value: balance.balance, icon: Wallet, tone: "dark" },
+        { label: "Qarzdorlik", value: balance.debt, icon: AlertTriangle, tone: balance.debt > 0 ? "danger" : "light" },
+        { label: "Bugungi tushum", value: balance.today_gross_revenue, icon: Banknote, tone: "gold" },
+        { label: "Platforma komissiyasi", value: balance.today_commission, icon: ReceiptText, tone: "light" },
+        { label: "Toza daromad", value: balance.today_net_earning, icon: TrendingUp, tone: "success" },
+      ]
+    : [];
+
+  async function handleTopUp() {
+    const raw = window.prompt("Top-up amount (UZS)", "100000");
+    if (!raw) return;
+    const amount = Number(raw.replace(/\s/g, ""));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Top-up miqdori musbat raqam bo'lishi kerak");
+      return;
+    }
+    setTopUpBusy(true);
+    try {
+      setBalance(await topUpBarberBalance(Math.round(amount)));
+      setTransactions(await getBarberTransactions());
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Top-up bajarilmadi");
+    } finally {
+      setTopUpBusy(false);
+    }
+  }
+
+  function money(value: number) {
+    return `${value.toLocaleString()} UZS`;
+  }
 
   return (
     <main className="phone-shell">
@@ -151,6 +207,57 @@ export function BarberDashboardPage() {
                 })}
               </section>
 
+              {balance ? (
+                <section className="space-y-3">
+                  {balance.is_financially_blocked ? (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                      Hisobingiz bloklangan. Iltimos, balansni to'ldiring.
+                    </div>
+                  ) : balance.debt > 0 ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                      Hisobingizda qarzdorlik bor. Yangi bookinglarni olish uchun hisobingizni to'ldiring.
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {financeCards.map((card) => {
+                      const Icon = card.icon;
+                      const isDark = card.tone === "dark";
+                      const isDanger = card.tone === "danger";
+                      const isSuccess = card.tone === "success";
+                      return (
+                        <article
+                          key={card.label}
+                          className={`rounded-2xl border p-4 ${
+                            isDark
+                              ? "border-[#1f2022] bg-[#0d0d0f]"
+                              : isDanger
+                                ? "border-red-200 bg-red-50"
+                                : isSuccess
+                                  ? "border-emerald-200 bg-emerald-50"
+                                  : "border-[#eef0f5] bg-white"
+                          }`}
+                          style={{ boxShadow: "var(--shadow-card)" }}
+                        >
+                          <Icon size={18} className={isDark ? "text-[#c9a84c]" : isDanger ? "text-red-500" : "text-[#c9a84c]"} />
+                          <p className={`mt-3 text-lg font-bold ${isDark ? "text-white" : isDanger ? "text-red-700" : "text-[#0d0d0f]"}`}>
+                            {money(card.value)}
+                          </p>
+                          <p className={`mt-0.5 text-[11px] font-semibold ${isDark ? "text-white/45" : "text-[#64748b]"}`}>
+                            {card.label}
+                          </p>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <button className="btn-primary w-full justify-center" type="button" onClick={handleTopUp} disabled={topUpBusy}>
+                    <PlusCircle size={18} />
+                    {topUpBusy ? "Yuklanmoqda..." : "Hisobni to'ldirish"}
+                  </button>
+                </section>
+              ) : null}
+
               {/* Quick nav links */}
               <div className="space-y-2">
                 <Link
@@ -214,6 +321,37 @@ export function BarberDashboardPage() {
                           </p>
                         </div>
                         <StatusBadge status={booking.status} />
+                      </article>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-base font-bold text-[#0d0d0f]">Transaction history</h2>
+                  <span className="text-xs text-[#94a3b8]">{transactions.length} records</span>
+                </div>
+                <div className="space-y-2.5">
+                  {transactions.length === 0 ? (
+                    <EmptyState title="No transactions yet" />
+                  ) : (
+                    transactions.slice(0, 6).map((item) => (
+                      <article
+                        key={item.id}
+                        className="rounded-2xl border border-[#eef0f5] bg-white p-4"
+                        style={{ boxShadow: "var(--shadow-card)" }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-[#0d0d0f]">{item.type.replace(/_/g, " ")}</p>
+                            <p className="mt-0.5 truncate text-xs text-[#94a3b8]">{item.description ?? "Balance operation"}</p>
+                          </div>
+                          <span className="text-sm font-bold text-[#0d0d0f]">{money(item.amount)}</span>
+                        </div>
+                        <p className="mt-2 text-xs text-[#94a3b8]">
+                          {new Date(item.created_at).toLocaleString()} - {money(item.balance_before)} to {money(item.balance_after)}
+                        </p>
                       </article>
                     ))
                   )}

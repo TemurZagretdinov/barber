@@ -12,6 +12,12 @@ export interface Booking {
   booking_time: string;
   status: BookingStatus;
   price?: number | null;
+  service_price?: number;
+  commission_percent?: number;
+  commission_amount?: number;
+  barber_earning?: number;
+  commission_charged?: boolean;
+  commission_charged_at?: string | null;
   duration_minutes: number;
   notes?: string | null;
   service_note?: string | null;

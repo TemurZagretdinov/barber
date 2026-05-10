@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import settings
 from app.db.database import get_db
 from app.models.barber import Barber
 from app.models.barber_service import BarberService
@@ -49,6 +50,7 @@ def serialize_barber(barber: Barber, distance_km: float | None = None) -> Barber
         off_days=barber.off_days or [],
         bio=barber.bio,
         is_active=barber.is_active,
+        is_financially_blocked=barber.is_financially_blocked,
         created_at=barber.created_at,
         updated_at=barber.updated_at,
         distance_km=distance_km,
@@ -68,6 +70,8 @@ def list_public_barbers(
         .options(selectinload(Barber.user))
         .where(Barber.is_active.is_(True))
     ).all()
+    if settings.financial_blocking_enabled:
+        barbers = [barber for barber in barbers if not barber.is_financially_blocked]
 
     distances: dict[int, float | None] = {}
     if user_lat is not None and user_lng is not None:
@@ -94,13 +98,16 @@ def get_public_barber(barber_id: int, db: Session = Depends(get_db)) -> BarberRe
         .options(selectinload(Barber.user))
         .where(Barber.id == barber_id, Barber.is_active.is_(True))
     )
-    if not barber:
+    if not barber or (settings.financial_blocking_enabled and barber.is_financially_blocked):
         raise HTTPException(status_code=404, detail="Barber not found")
     return serialize_barber(barber)
 
 
 @router.get("/barbers/{barber_id}/services", response_model=list[BarberServiceRead])
 def public_barber_services(barber_id: int, db: Session = Depends(get_db)) -> list[BarberService]:
+    barber = db.get(Barber, barber_id)
+    if not barber or not barber.is_active or (settings.financial_blocking_enabled and barber.is_financially_blocked):
+        raise HTTPException(status_code=404, detail="Barber not found")
     return list(
         db.scalars(
             select(BarberService)

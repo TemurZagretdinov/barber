@@ -23,6 +23,7 @@ from app.schemas.barber import (
 )
 from app.schemas.booking import BookingActionNote, BookingWithBarber
 from app.schemas.dashboard import BarberDashboard, BarberDashboardV2
+from app.schemas.finance import BarberBalanceRead, BarberTopUpRequest, BarberTransactionRead
 from app.services.booking_service import (
     booking_to_with_barber,
     complete_booking_for_barber,
@@ -30,6 +31,7 @@ from app.services.booking_service import (
     update_barber_booking_action,
 )
 from app.services.dashboard_service import get_barber_dashboard, get_barber_dashboard_v2
+from app.services.finance_service import get_barber_balance_summary, list_barber_transactions, top_up_barber_balance
 
 router = APIRouter()
 
@@ -50,6 +52,31 @@ def dashboard_v2(
     db: Session = Depends(get_db),
 ) -> BarberDashboardV2:
     return get_barber_dashboard_v2(db, barber, date)
+
+
+@router.get("/barber/balance", response_model=BarberBalanceRead)
+def barber_balance(
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> BarberBalanceRead:
+    return get_barber_balance_summary(db, barber)
+
+
+@router.get("/barber/transactions", response_model=list[BarberTransactionRead])
+def barber_transactions(
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> list:
+    return list_barber_transactions(db, barber.id)
+
+
+@router.post("/barber/balance/top-up", response_model=BarberBalanceRead)
+def barber_top_up(
+    payload: BarberTopUpRequest,
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> BarberBalanceRead:
+    return top_up_barber_balance(db, barber, payload.amount)
 
 
 @router.get("/barber/services", response_model=list[BarberServiceRead])

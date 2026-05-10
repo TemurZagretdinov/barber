@@ -28,6 +28,10 @@ class Barber(Base):
     off_days: Mapped[list[str] | None] = mapped_column(JSON)
     bio: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    debt: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    commission_percent: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    is_financially_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -41,3 +45,7 @@ class Barber(Base):
     day_offs: Mapped[list["BarberDayOff"]] = relationship(back_populates="barber", cascade="all, delete-orphan")
     vacations: Mapped[list["BarberVacation"]] = relationship(back_populates="barber", cascade="all, delete-orphan")
     favorited_by: Mapped[list["CustomerFavoriteBarber"]] = relationship(back_populates="barber", cascade="all, delete-orphan")
+    transactions: Mapped[list["BarberTransaction"]] = relationship(back_populates="barber", cascade="all, delete-orphan")
+    daily_settlements: Mapped[list["BarberDailySettlement"]] = relationship(
+        back_populates="barber", cascade="all, delete-orphan"
+    )

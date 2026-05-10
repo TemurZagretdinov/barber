@@ -1,10 +1,18 @@
 import { Edit2, MapPin, Plus, Star, Trash2, Wallet, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
-import { createAdminBarber, deleteAdminBarber, getAdminBarbers, updateAdminBarber } from "../../api/admin";
+import {
+  adjustAdminBarberBalance,
+  createAdminBarber,
+  deleteAdminBarber,
+  getAdminBarberFinance,
+  getAdminBarbers,
+  updateAdminBarber,
+} from "../../api/admin";
 import { ErrorMessage } from "../../components/ui/ErrorMessage";
 import { LoadingState } from "../../components/ui/LoadingState";
 import type { AdminBarber, BarberFormPayload } from "../../types/barber";
+import type { AdminBarberFinance } from "../../types/finance";
 
 const emptyForm = {
   full_name: "",
@@ -116,6 +124,10 @@ export function BarbersPage() {
   const [editing, setEditing] = useState<AdminBarber | null>(null);
   const [form, setForm] = useState<BarberForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [financeModal, setFinanceModal] = useState<AdminBarberFinance | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustDescription, setAdjustDescription] = useState("Manual adjustment");
+  const [adjusting, setAdjusting] = useState(false);
 
   function load() {
     setLoading(true);
@@ -163,6 +175,46 @@ export function BarbersPage() {
     if (!confirm("Delete this barber?")) return;
     await deleteAdminBarber(id);
     load();
+  }
+
+  function money(value: number | null | undefined) {
+    return `${(value ?? 0).toLocaleString()} UZS`;
+  }
+
+  async function openFinance(barber: AdminBarber) {
+    setError("");
+    setAdjustAmount("");
+    setAdjustDescription("Manual adjustment");
+    try {
+      setFinanceModal(await getAdminBarberFinance(barber.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load finance details");
+    }
+  }
+
+  async function saveAdjustment(event: FormEvent) {
+    event.preventDefault();
+    if (!financeModal) return;
+    const amount = Number(adjustAmount.replace(/\s/g, ""));
+    if (!Number.isFinite(amount) || amount === 0) {
+      setError("Adjustment amount must be a non-zero number.");
+      return;
+    }
+    setAdjusting(true);
+    setError("");
+    try {
+      const nextFinance = await adjustAdminBarberBalance(financeModal.barber_id, {
+        amount: Math.round(amount),
+        description: adjustDescription,
+      });
+      setFinanceModal(nextFinance);
+      setAdjustAmount("");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to adjust balance");
+    } finally {
+      setAdjusting(false);
+    }
   }
 
   return (
@@ -225,6 +277,15 @@ export function BarbersPage() {
                     {barber.price_from.toLocaleString()} UZS
                   </span>
                 ) : null}
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#eef0f5] bg-[#f8f9fb] px-2.5 py-0.5 text-xs font-semibold text-[#334155]">
+                  <Wallet size={11} className="text-[#c9a84c]" />
+                  Balans: {money(barber.balance)}
+                </span>
+                {barber.debt && barber.debt > 0 ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600">
+                    Debt: {money(barber.debt)}
+                  </span>
+                ) : null}
                 {barber.address ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-[#eef0f5] bg-[#f8f9fb] px-2.5 py-0.5 text-xs text-[#64748b]">
                     <MapPin size={11} />
@@ -242,6 +303,14 @@ export function BarbersPage() {
 
             {/* Actions */}
             <div className="flex gap-2 shrink-0">
+              <button
+                className="btn-icon"
+                type="button"
+                onClick={() => openFinance(barber)}
+                title="Finance"
+              >
+                <Wallet size={16} />
+              </button>
               <button
                 className="btn-icon"
                 type="button"
@@ -431,6 +500,83 @@ export function BarbersPage() {
                   </span>
                 ) : "Save Barber"}
               </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {financeModal ? (
+        <div className="modal-backdrop items-start overflow-y-auto py-10">
+          <form className="modal-card w-full max-w-3xl" onSubmit={saveAdjustment}>
+            <div className="flex items-center justify-between border-b border-[#eef0f5] px-7 py-6">
+              <div>
+                <h2 className="text-xl font-bold text-[#0d0d0f]">{financeModal.full_name} finance</h2>
+                <p className="mt-0.5 text-sm text-[#94a3b8]">Balance, debt, revenue and settlement history</p>
+              </div>
+              <button className="btn-icon" type="button" onClick={() => setFinanceModal(null)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-6 p-7">
+              {error ? <ErrorMessage message={error} /> : null}
+              <section className="grid gap-3 sm:grid-cols-4">
+                {[
+                  ["Balance", financeModal.balance],
+                  ["Debt", financeModal.debt],
+                  ["Revenue", financeModal.total_revenue],
+                  ["Paid commission", financeModal.commission_paid],
+                ].map(([label, value]) => (
+                  <article key={label} className="rounded-xl border border-[#eef0f5] bg-[#fafafa] p-4">
+                    <p className="text-xs font-semibold text-[#64748b]">{label}</p>
+                    <p className="mt-1 text-lg font-bold text-[#0d0d0f]">{money(Number(value))}</p>
+                  </article>
+                ))}
+              </section>
+
+              <section className="grid gap-4 sm:grid-cols-[1fr_2fr]">
+                <div className="rounded-xl border border-[#eef0f5] bg-white p-4">
+                  <h3 className="mb-3 text-sm font-bold text-[#0d0d0f]">Adjust balance</h3>
+                  <div className="space-y-3">
+                    <FieldLabel label="Amount">
+                      <input
+                        className="input"
+                        required
+                        placeholder="100000 or -50000"
+                        value={adjustAmount}
+                        onChange={(e) => setAdjustAmount(e.target.value)}
+                      />
+                    </FieldLabel>
+                    <FieldLabel label="Description">
+                      <input
+                        className="input"
+                        required
+                        value={adjustDescription}
+                        onChange={(e) => setAdjustDescription(e.target.value)}
+                      />
+                    </FieldLabel>
+                    <button className="btn-primary w-full justify-center" disabled={adjusting} type="submit">
+                      {adjusting ? "Saving..." : "Save adjustment"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#eef0f5] bg-white p-4">
+                  <h3 className="mb-3 text-sm font-bold text-[#0d0d0f]">Recent transactions</h3>
+                  <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                    {financeModal.transactions.length === 0 ? <p className="text-sm text-[#94a3b8]">No transactions yet.</p> : null}
+                    {financeModal.transactions.slice(0, 12).map((item) => (
+                      <div key={item.id} className="rounded-lg border border-[#eef0f5] bg-[#fafafa] p-3">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-sm font-semibold text-[#0d0d0f]">{item.type.replace(/_/g, " ")}</span>
+                          <span className="text-sm font-bold text-[#0d0d0f]">{money(item.amount)}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-[#94a3b8]">{item.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
             </div>
           </form>
         </div>

@@ -44,7 +44,7 @@ class AdminTopBarber(BaseModel):
     full_name: str
     bookings_count: int
     completed_count: int
-    revenue: float
+    revenue: int
 
 
 class AdminDashboardV2(BaseModel):
@@ -63,7 +63,7 @@ class BarberDashboardBooking(BaseModel):
     date: date
     time: time
     status: str
-    price: float | None = None
+    price: int | None = None
     service_note: str | None = None
 
 
@@ -73,7 +73,7 @@ class BarberDashboardV2(BaseModel):
     completed_count: int
     cancelled_count: int
     no_show_count: int
-    today_revenue: float
-    week_revenue: float
+    today_revenue: int
+    week_revenue: int
     week_completed: int
     bookings: list[BarberDashboardBooking]

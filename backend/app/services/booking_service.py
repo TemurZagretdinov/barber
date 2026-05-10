@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.barber import Barber
 from app.models.barber_service import BarberService
 from app.models.barber_time_off import BarberDayOff, BarberVacation
@@ -47,7 +48,7 @@ def _ranges_overlap(start_a: datetime, end_a: datetime, start_b: datetime, end_b
 
 def get_barber_or_404(db: Session, barber_id: int) -> Barber:
     barber = db.get(Barber, barber_id)
-    if not barber or not barber.is_active:
+    if not barber or not barber.is_active or (settings.financial_blocking_enabled and barber.is_financially_blocked):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Barber not found")
     return barber
 
@@ -270,6 +271,8 @@ def ensure_slot_available(
 
 
 def create_booking(db: Session, payload: BookingCreate, customer_id: int | None = None) -> Booking:
+    from app.services.finance_service import money_to_int
+
     service = ensure_slot_available(
         db,
         barber_id=payload.barber_id,
@@ -281,6 +284,7 @@ def create_booking(db: Session, payload: BookingCreate, customer_id: int | None 
         **payload.model_dump(exclude={"customer_id"}),
         customer_id=customer_id,
         price=service.price,
+        service_price=money_to_int(service.price),
         duration_minutes=service.duration_minutes,
         status="pending",
     )
@@ -310,6 +314,12 @@ def booking_to_with_barber(booking: Booking):
         booking_time=booking.booking_time,
         status=booking.status,
         price=booking.price,
+        service_price=booking.service_price,
+        commission_percent=booking.commission_percent,
+        commission_amount=booking.commission_amount,
+        barber_earning=booking.barber_earning,
+        commission_charged=booking.commission_charged,
+        commission_charged_at=booking.commission_charged_at,
         duration_minutes=booking.duration_minutes,
         notes=booking.notes,
         telegram_user_id=booking.telegram_user_id,
@@ -421,6 +431,9 @@ def complete_booking_for_barber(db: Session, booking_id: int, barber_id: int, no
     booking.status = "completed"
     booking.service_note = note
     booking.completed_at = tashkent_now()
+    from app.services.finance_service import calculate_booking_commission
+
+    calculate_booking_commission(booking, booking.barber)
     db.commit()
     db.refresh(booking)
     from app.services.notification_service import booking_event_notification
@@ -453,6 +466,9 @@ def update_barber_booking_action(
     booking.service_note = note
     if status_name == "completed":
         booking.completed_at = tashkent_now()
+        from app.services.finance_service import calculate_booking_commission
+
+        calculate_booking_commission(booking, booking.barber)
     db.commit()
     db.refresh(booking)
     if status_name in {"completed", "cancelled", "no_show"}:

@@ -56,6 +56,12 @@ class BookingRead(BaseModel):
     booking_time: time
     status: str
     price: float | None = None
+    service_price: int = 0
+    commission_percent: int = 0
+    commission_amount: int = 0
+    barber_earning: int = 0
+    commission_charged: bool = False
+    commission_charged_at: datetime | None = None
     duration_minutes: int
     notes: str | None = None
     service_note: str | None = None

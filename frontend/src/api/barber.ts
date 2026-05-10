@@ -1,9 +1,25 @@
 import { apiRequest } from "./client";
 import type { BarberDayOff, BarberScheduleItem, BarberService, BarberVacation } from "../types/barber";
 import type { BarberDashboard, BookingWithBarber } from "../types/booking";
+import type { BarberBalance, BarberTransaction } from "../types/finance";
 
 export function getBarberDashboard(date?: string) {
   return apiRequest<BarberDashboard>(`/barber/dashboard${date ? `?date=${date}` : ""}`);
+}
+
+export function getBarberBalance() {
+  return apiRequest<BarberBalance>("/barber/balance");
+}
+
+export function getBarberTransactions() {
+  return apiRequest<BarberTransaction[]>("/barber/transactions");
+}
+
+export function topUpBarberBalance(amount: number) {
+  return apiRequest<BarberBalance>("/barber/balance/top-up", {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
 }
 
 export function getBarberSchedule(params: { date?: string; status?: string }) {

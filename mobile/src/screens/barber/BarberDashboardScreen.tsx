@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { getBarberDashboard } from "../../api/bookings";
+import { getBarberBalance, getBarberDashboard, getBarberTransactions, topUpBarberBalance } from "../../api/bookings";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { colors, ScreenContainer } from "../../components/ScreenContainer";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -12,6 +12,7 @@ import type { BarberStackParamList } from "../../navigation/types";
 import { useAuth } from "../../store/authStore";
 import { useTheme } from "../../theme/theme";
 import type { BarberDashboard } from "../../types/booking";
+import type { BarberBalance, BarberTransaction } from "../../types/finance";
 import { formatDateLong, formatTime, todayISO } from "../../utils/date";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -22,14 +23,25 @@ export function BarberDashboardScreen() {
   const { signOut, user } = useAuth();
   const { theme } = useTheme();
   const [data, setData] = useState<BarberDashboard | null>(null);
+  const [balance, setBalance] = useState<BarberBalance | null>(null);
+  const [transactions, setTransactions] = useState<BarberTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [topUpAmount, setTopUpAmount] = useState("100000");
+  const [topUpBusy, setTopUpBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      setData(await getBarberDashboard(todayISO()));
+      const [nextData, nextBalance, nextTransactions] = await Promise.all([
+        getBarberDashboard(todayISO()),
+        getBarberBalance(),
+        getBarberTransactions(),
+      ]);
+      setData(nextData);
+      setBalance(nextBalance);
+      setTransactions(nextTransactions);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load dashboard");
     } finally {
@@ -46,6 +58,28 @@ export function BarberDashboardScreen() {
   async function logout() {
     await signOut();
     navigation.getParent()?.reset({ index: 0, routes: [{ name: "Public" }] });
+  }
+
+  async function submitTopUp() {
+    const amount = Number(topUpAmount.replace(/\s/g, ""));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Top-up miqdori musbat raqam bo'lishi kerak.");
+      return;
+    }
+    setTopUpBusy(true);
+    setError("");
+    try {
+      setBalance(await topUpBarberBalance(Math.round(amount)));
+      setTransactions(await getBarberTransactions());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Top-up bajarilmadi");
+    } finally {
+      setTopUpBusy(false);
+    }
+  }
+
+  function money(value: number) {
+    return `${value.toLocaleString()} UZS`;
   }
 
   return (
@@ -97,6 +131,50 @@ export function BarberDashboardScreen() {
             </Text>
           </View>
 
+          {balance ? (
+            <View style={styles.financeBlock}>
+              {balance.is_financially_blocked ? (
+                <View style={[styles.warningBox, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }]}>
+                  <Ionicons name="alert-circle" color={theme.colors.danger} size={18} />
+                  <Text style={[styles.warningText, { color: theme.colors.danger }]}>Hisobingiz bloklangan. Iltimos, balansni to'ldiring.</Text>
+                </View>
+              ) : balance.debt > 0 ? (
+                <View style={[styles.warningBox, { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine }]}>
+                  <Ionicons name="warning" color={theme.colors.warning} size={18} />
+                  <Text style={[styles.warningText, { color: theme.colors.warning }]}>Hisobingizda qarzdorlik bor. Yangi bookinglarni olish uchun hisobingizni to'ldiring.</Text>
+                </View>
+              ) : null}
+
+              <View style={styles.financeGrid}>
+                <FinanceCard label="Balans" value={money(balance.balance)} icon="wallet-outline" dark />
+                <FinanceCard label="Qarzdorlik" value={money(balance.debt)} icon="alert-circle-outline" danger={balance.debt > 0} />
+                <FinanceCard label="Bugungi tushum" value={money(balance.today_gross_revenue)} icon="cash-outline" />
+                <FinanceCard label="Komissiya" value={money(balance.today_commission)} icon="receipt-outline" />
+                <FinanceCard label="Toza daromad" value={money(balance.today_net_earning)} icon="trending-up-outline" success />
+              </View>
+
+              <View style={[styles.topUpCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
+                <Text style={[styles.topUpTitle, { color: theme.colors.text }]}>Hisobni to'ldirish</Text>
+                <View style={styles.topUpRow}>
+                  <TextInput
+                    value={topUpAmount}
+                    onChangeText={setTopUpAmount}
+                    keyboardType="number-pad"
+                    placeholder="100000"
+                    placeholderTextColor={theme.colors.subtle}
+                    style={[styles.topUpInput, { backgroundColor: theme.colors.input, borderColor: theme.colors.line, color: theme.colors.text }]}
+                  />
+                  <PrimaryButton
+                    title={topUpBusy ? "..." : "Top-up"}
+                    onPress={submitTopUp}
+                    style={styles.topUpButton}
+                    icon={<Ionicons name="add-circle-outline" size={18} color={theme.colors.onGold} />}
+                  />
+                </View>
+              </View>
+            </View>
+          ) : null}
+
           {/* Schedule button */}
           <PrimaryButton
             title="Kunlik jadval"
@@ -130,9 +208,68 @@ export function BarberDashboardScreen() {
               </View>
             ))}
           </View>
+
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Transaction history</Text>
+            <Text style={[styles.sectionCount, { color: theme.colors.muted }]}>{transactions.length} ta</Text>
+          </View>
+          <View style={styles.list}>
+            {transactions.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Ionicons name="receipt-outline" size={32} color={theme.colors.muted} />
+                <Text style={[styles.emptyText, { color: theme.colors.muted }]}>Hali transaction yo'q</Text>
+              </View>
+            ) : null}
+            {transactions.slice(0, 8).map((item) => (
+              <View key={item.id} style={[styles.transactionItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.transactionType, { color: theme.colors.text }]}>{item.type.replace(/_/g, " ")}</Text>
+                  <Text style={[styles.transactionMeta, { color: theme.colors.muted }]} numberOfLines={1}>{item.description ?? "Balance operation"}</Text>
+                  <Text style={[styles.transactionMeta, { color: theme.colors.subtle }]}>
+                    {money(item.balance_before)} - {money(item.balance_after)}
+                  </Text>
+                </View>
+                <Text style={[styles.transactionAmount, { color: theme.colors.gold }]}>{money(item.amount)}</Text>
+              </View>
+            ))}
+          </View>
         </>
       ) : null}
     </ScreenContainer>
+  );
+}
+
+function FinanceCard({
+  label,
+  value,
+  icon,
+  dark = false,
+  danger = false,
+  success = false,
+}: {
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  dark?: boolean;
+  danger?: boolean;
+  success?: boolean;
+}) {
+  const { theme } = useTheme();
+  const cardColors = danger
+    ? { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }
+    : success
+      ? { backgroundColor: theme.colors.successBg, borderColor: theme.colors.successLine }
+      : dark
+        ? { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }
+        : { backgroundColor: theme.colors.card, borderColor: theme.colors.line };
+  const tint = danger ? theme.colors.danger : success ? theme.colors.success : theme.colors.gold;
+
+  return (
+    <View style={[styles.financeCard, cardColors]}>
+      <Ionicons name={icon} color={tint} size={20} />
+      <Text style={[styles.financeValue, { color: dark ? theme.colors.gold : danger ? theme.colors.danger : theme.colors.text }]}>{value}</Text>
+      <Text style={[styles.financeLabel, { color: theme.colors.muted }]}>{label}</Text>
+    </View>
   );
 }
 
@@ -309,6 +446,72 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 6,
   },
+  financeBlock: {
+    gap: 12,
+  },
+  financeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  financeCard: {
+    width: "47.5%",
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    gap: 8,
+  },
+  financeValue: {
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  financeLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  warningBox: {
+    flexDirection: "row",
+    gap: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  topUpCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+  },
+  topUpTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  topUpRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+  },
+  topUpInput: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  topUpButton: {
+    minHeight: 50,
+    paddingHorizontal: 14,
+  },
   sectionTitle: {
     color: colors.text,
     fontSize: 18,
@@ -357,6 +560,28 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 12,
     marginTop: 2,
+  },
+  transactionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
+  transactionType: {
+    fontSize: 14,
+    fontWeight: "800",
+    textTransform: "capitalize",
+  },
+  transactionMeta: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  transactionAmount: {
+    fontSize: 13,
+    fontWeight: "900",
   },
   emptyBox: {
     alignItems: "center",

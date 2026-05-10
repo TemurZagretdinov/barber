@@ -25,10 +25,14 @@ export interface Barber {
   services?: string[] | null;
   bio?: string | null;
   is_active: boolean;
+  is_financially_blocked?: boolean;
   created_at: string;
   updated_at: string;
   total_bookings?: number;
   today_bookings?: number;
+  balance?: number;
+  debt?: number;
+  commission_percent?: number;
 }
 
 export interface BarberFormPayload {

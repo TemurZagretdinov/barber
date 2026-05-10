@@ -1,11 +1,12 @@
-import { CalendarCheck, CheckCircle2, Scissors, TrendingUp, Trophy, UsersRound } from "lucide-react";
+import { Banknote, CalendarCheck, CheckCircle2, PlayCircle, ReceiptText, Scissors, TrendingUp, Trophy, UsersRound, Wallet } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { getAdminDashboard } from "../../api/admin";
+import { getAdminDashboard, getAdminFinanceOverview, runAdminSettlement } from "../../api/admin";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorMessage } from "../../components/ui/ErrorMessage";
 import { LoadingState } from "../../components/ui/LoadingState";
 import type { AdminDashboard } from "../../types/booking";
+import type { AdminFinanceOverview } from "../../types/finance";
 import { formatDateLong, todayISO } from "../../utils/date";
 
 interface StatCard {
@@ -20,13 +21,15 @@ interface StatCard {
 
 export function DashboardPage() {
   const [data, setData] = useState<AdminDashboard | null>(null);
+  const [finance, setFinance] = useState<AdminFinanceOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [settlementBusy, setSettlementBusy] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
-    getAdminDashboard()
-      .then((nextData) => { setData(nextData); setError(""); })
+    Promise.all([getAdminDashboard(), getAdminFinanceOverview()])
+      .then(([nextData, nextFinance]) => { setData(nextData); setFinance(nextFinance); setError(""); })
       .catch(() => setError("Ma'lumotlarni yuklashda xatolik yuz berdi"))
       .finally(() => setLoading(false));
   }, []);
@@ -78,6 +81,33 @@ export function DashboardPage() {
         },
       ]
     : [];
+
+  const financeCards = finance
+    ? [
+        { label: "Today commission", value: finance.total_platform_commission_today, hint: "Accrued today", icon: ReceiptText },
+        { label: "Month commission", value: finance.total_platform_commission_month, hint: "Current month", icon: TrendingUp },
+        { label: "Barber debt", value: finance.total_barber_debt, hint: "Open debt", icon: Wallet },
+        { label: "Top-ups", value: finance.total_topups, hint: "All time", icon: Banknote },
+        { label: "Unsettled", value: finance.unsettled_commissions, hint: "Pending deduction", icon: PlayCircle },
+      ]
+    : [];
+
+  async function handleRunSettlement() {
+    setSettlementBusy(true);
+    setError("");
+    try {
+      await runAdminSettlement(todayISO());
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Settlement failed");
+    } finally {
+      setSettlementBusy(false);
+    }
+  }
+
+  function money(value: number) {
+    return `${value.toLocaleString()} UZS`;
+  }
 
   return (
     <div>
@@ -143,6 +173,47 @@ export function DashboardPage() {
               );
             })}
           </section>
+
+          {finance ? (
+            <section className="panel-card p-6">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-[#0d0d0f]">Finance Overview</h2>
+                  <p className="text-xs text-[#94a3b8]">Commission, debts, top-ups and unsettled bookings</p>
+                </div>
+                <button className="btn-primary w-full sm:w-auto" type="button" onClick={handleRunSettlement} disabled={settlementBusy}>
+                  <PlayCircle size={18} />
+                  {settlementBusy ? "Running..." : "Run settlement"}
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {financeCards.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <article key={item.label} className="rounded-xl border border-[#eef0f5] bg-[#fafafa] p-4">
+                      <Icon size={18} className="text-[#c9a84c]" />
+                      <p className="mt-3 text-xl font-bold text-[#0d0d0f]">{money(item.value)}</p>
+                      <p className="text-xs font-semibold text-[#334155]">{item.label}</p>
+                      <p className="text-[11px] text-[#94a3b8]">{item.hint}</p>
+                    </article>
+                  );
+                })}
+              </div>
+              {finance.barbers_with_debt.length > 0 ? (
+                <div className="mt-5">
+                  <h3 className="mb-2 text-sm font-bold text-[#0d0d0f]">Barbers with debt</h3>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {finance.barbers_with_debt.slice(0, 6).map((item) => (
+                      <div key={item.barber_id} className="flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                        <span className="text-sm font-semibold text-amber-900">{item.full_name}</span>
+                        <span className="text-sm font-bold text-amber-800">{money(item.debt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           {/* Lower section */}
           <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">

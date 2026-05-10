@@ -17,6 +17,13 @@ from app.models.working_hour import WorkingHour
 from app.schemas.barber import BarberAdminRead, BarberCreate, BarberRead, BarberUpdate
 from app.schemas.booking import BookingStatusUpdate, BookingWithBarber
 from app.schemas.dashboard import AdminDashboard, AdminDashboardV2
+from app.schemas.finance import (
+    AdminBalanceAdjustmentRequest,
+    AdminBarberFinanceRead,
+    AdminFinanceOverview,
+    DailySettlementRunRequest,
+    DailySettlementRunResponse,
+)
 from app.services.booking_service import (
     booking_to_with_barber,
     complete_booking_for_barber,
@@ -26,6 +33,12 @@ from app.services.booking_service import (
 )
 from app.services.dashboard_service import get_admin_dashboard, get_admin_dashboard_v2
 from app.services.demo_seed_service import seed_demo_data
+from app.services.finance_service import (
+    adjust_barber_balance,
+    get_admin_barber_finance,
+    get_admin_finance_overview,
+    run_daily_settlement,
+)
 
 router = APIRouter()
 
@@ -96,6 +109,9 @@ def admin_barber_payload(db: Session, barber: Barber) -> BarberAdminRead:
         db.scalar(select(func.count(Booking.id)).where(Booking.barber_id == barber.id, Booking.booking_date == today))
         or 0
     )
+    base["balance"] = barber.balance
+    base["debt"] = barber.debt
+    base["commission_percent"] = barber.commission_percent
     return BarberAdminRead(**base)
 
 
@@ -131,6 +147,7 @@ def create_barber(payload: BarberCreate, db: Session = Depends(get_db)) -> Barbe
         work_end_time=payload.work_end_time,
         off_days=payload.off_days,
         bio=payload.bio,
+        commission_percent=settings.commission_percent_default,
     )
     db.add(barber)
     db.flush()
@@ -228,3 +245,27 @@ def patch_booking_status(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin cannot complete bookings")
     booking = update_booking_status(db, booking_id, payload.status, barber_id=barber_id)
     return booking_to_with_barber(booking)
+
+
+@router.get("/admin/finance/overview", response_model=AdminFinanceOverview, dependencies=[Depends(require_admin)])
+def finance_overview(db: Session = Depends(get_db)) -> AdminFinanceOverview:
+    return get_admin_finance_overview(db)
+
+
+@router.get("/admin/barbers/{barber_id}/finance", response_model=AdminBarberFinanceRead, dependencies=[Depends(require_admin)])
+def barber_finance(barber_id: int, db: Session = Depends(get_db)) -> AdminBarberFinanceRead:
+    return get_admin_barber_finance(db, barber_id)
+
+
+@router.post("/admin/settlements/run", response_model=DailySettlementRunResponse, dependencies=[Depends(require_admin)])
+def run_settlements(payload: DailySettlementRunRequest, db: Session = Depends(get_db)) -> DailySettlementRunResponse:
+    return run_daily_settlement(db, payload.date)
+
+
+@router.post("/admin/barbers/{barber_id}/adjust-balance", response_model=AdminBarberFinanceRead, dependencies=[Depends(require_admin)])
+def adjust_balance(
+    barber_id: int,
+    payload: AdminBalanceAdjustmentRequest,
+    db: Session = Depends(get_db),
+) -> AdminBarberFinanceRead:
+    return adjust_barber_balance(db, barber_id, payload.amount, payload.description)

@@ -127,6 +127,9 @@ export function AdminBarbersScreen() {
               <Text style={[styles.meta, { color: theme.colors.subtle }]} numberOfLines={2}>
                 {barber.years_experience ?? 0} yrs exp - {barber.email} - {barber.total_bookings ?? 0} total bookings
               </Text>
+              <Text style={[styles.financeMeta, { color: (barber.debt ?? 0) > 0 ? theme.colors.danger : theme.colors.gold }]} numberOfLines={1}>
+                Balance {(barber.balance ?? 0).toLocaleString()} UZS - Debt {(barber.debt ?? 0).toLocaleString()} UZS
+              </Text>
             </View>
             <View style={[styles.todayBox, { backgroundColor: theme.colors.goldSoft }]}>
               <Text style={[styles.todayValue, { color: theme.colors.gold }]}>{barber.today_bookings ?? 0}</Text>
@@ -314,6 +317,11 @@ const styles = StyleSheet.create({
   meta: {
     ...adminTypography.label,
     marginTop: 6,
+  },
+  financeMeta: {
+    ...adminTypography.label,
+    marginTop: 5,
+    fontWeight: "800",
   },
   todayBox: {
     minWidth: 54,

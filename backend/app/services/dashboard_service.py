@@ -8,6 +8,7 @@ from app.models.booking import Booking
 from app.schemas.dashboard import AdminDashboard, BarberDashboard, BarberPerformance, DashboardStats
 from app.schemas.dashboard import AdminDashboardV2, AdminTopBarber, BarberDashboardBooking, BarberDashboardV2
 from app.services.booking_service import booking_to_with_barber, tashkent_now
+from app.services.finance_service import booking_financial_preview
 
 
 def get_admin_dashboard(db: Session) -> AdminDashboard:
@@ -93,12 +94,9 @@ def get_barber_dashboard(db: Session, barber: Barber, dashboard_date: date | Non
     )
 
 
-def _booking_price(booking: Booking) -> float:
-    return float(
-        booking.price
-        if booking.price is not None
-        else booking.barber.base_price if booking.barber.base_price is not None else booking.barber.price_from or 0
-    )
+def _booking_price(booking: Booking) -> int:
+    service_price, _, _, _ = booking_financial_preview(booking, booking.barber)
+    return service_price
 
 
 def get_admin_dashboard_v2(db: Session) -> AdminDashboardV2:
@@ -113,14 +111,13 @@ def get_admin_dashboard_v2(db: Session) -> AdminDashboardV2:
     for barber in barbers:
         bookings = list(db.scalars(select(Booking).where(Booking.barber_id == barber.id)).all())
         completed = [booking for booking in bookings if booking.status == "completed"]
-        price = float(barber.base_price if barber.base_price is not None else barber.price_from or 0)
         top.append(
             AdminTopBarber(
                 id=barber.id,
                 full_name=barber.full_name,
                 bookings_count=len(bookings),
                 completed_count=len(completed),
-                revenue=len(completed) * price,
+                revenue=sum(_booking_price(booking) for booking in completed),
             )
         )
     top.sort(key=lambda item: (item.bookings_count, item.completed_count, item.revenue), reverse=True)
