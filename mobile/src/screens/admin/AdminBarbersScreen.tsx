@@ -132,8 +132,8 @@ export function AdminBarbersScreen() {
                 {barber.years_experience ?? 0} yrs exp - {barber.email} - {barber.total_bookings ?? 0} total bookings
               </Text>
               <View style={styles.financeContainer}>
-                <Text style={[styles.financeMeta, { color: (barber.demo_debt ?? barber.debt ?? 0) > 0 ? theme.colors.danger : theme.colors.gold }]} numberOfLines={1}>
-                  Balans: <MoneyText amount={barber.demo_balance ?? barber.balance ?? 0} color="gold" compact /> - Qarz: <MoneyText amount={barber.demo_debt ?? barber.debt ?? 0} color="danger" compact />
+                <Text style={[styles.financeMeta, { color: (barber.debt ?? barber.demo_debt ?? 0) > 0 ? theme.colors.danger : theme.colors.gold }]} numberOfLines={1}>
+                  Balans: <MoneyText amount={barber.balance ?? barber.demo_balance ?? 0} color="gold" compact /> - Qarz: <MoneyText amount={barber.debt ?? barber.demo_debt ?? 0} color="danger" compact />
                 </Text>
               </View>
             </View>

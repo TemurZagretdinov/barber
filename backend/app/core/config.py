@@ -32,12 +32,23 @@ class Settings(BaseSettings):
     commission_percent_default: int = Field(default=10, alias="COMMISSION_PERCENT_DEFAULT")
     financial_block_threshold: int = Field(default=50000, alias="FINANCIAL_BLOCK_THRESHOLD")
     financial_blocking_enabled: bool = Field(default=True, alias="FINANCIAL_BLOCKING_ENABLED")
+    payment_mode: str = Field(default="mock", alias="PAYMENT_MODE")
+    payment_providers_enabled_raw: str = Field(default="mock", alias="PAYMENT_PROVIDERS_ENABLED")
+    payme_merchant_id: str = Field(default="", alias="PAYME_MERCHANT_ID")
+    payme_secret_key: str = Field(default="", alias="PAYME_SECRET_KEY")
+    click_service_id: str = Field(default="", alias="CLICK_SERVICE_ID")
+    click_merchant_id: str = Field(default="", alias="CLICK_MERCHANT_ID")
+    click_secret_key: str = Field(default="", alias="CLICK_SECRET_KEY")
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
+
+    @property
+    def payment_providers_enabled(self) -> list[str]:
+        return [provider.strip().lower() for provider in self.payment_providers_enabled_raw.split(",") if provider.strip()]
 
     @property
     def sqlalchemy_database_url(self) -> str:

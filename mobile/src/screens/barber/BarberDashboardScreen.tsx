@@ -30,6 +30,7 @@ export function BarberDashboardScreen() {
   const [error, setError] = useState("");
   const [topUpAmount, setTopUpAmount] = useState("100000");
   const [topUpBusy, setTopUpBusy] = useState(false);
+  const [topUpSuccess, setTopUpSuccess] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,9 +70,11 @@ export function BarberDashboardScreen() {
     }
     setTopUpBusy(true);
     setError("");
+    setTopUpSuccess("");
     try {
       setBalance(await topUpBarberBalance(Math.round(amount)));
       setTransactions(await getBarberTransactions());
+      setTopUpSuccess("Hisob muvaffaqiyatli to'ldirildi.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Top-up bajarilmadi");
     } finally {
@@ -126,13 +129,16 @@ export function BarberDashboardScreen() {
           {/* Main Account panel */}
           <View style={[styles.revenueCard, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
             <Text style={[styles.revenueLabel, { color: theme.colors.muted }]} numberOfLines={1}>Umumiy hisob</Text>
-            <MoneyText amount={balance?.demo_balance ?? 0} color="gold" style={styles.revenueValue} />
+            <MoneyText amount={balance?.balance ?? 0} color="gold" style={styles.revenueValue} />
             <View style={[styles.revenueDivider, { backgroundColor: theme.colors.line }]} />
             <Text style={[styles.revenueWeek, { color: theme.colors.muted }]}>
-              Alpha test uchun ichki hisob-kitob
+              Platforma ichki hisobi
             </Text>
             <Text style={[styles.revenueWeek, { color: theme.colors.muted, marginTop: 4 }]}>
               Platforma komissiyasi: {balance?.commission_percent ?? 10}%
+            </Text>
+            <Text style={[styles.revenueWeek, { color: theme.colors.muted, marginTop: 4 }]}>
+              To'lov provayderi keyingi bosqichda ulanadi
             </Text>
           </View>
 
@@ -144,16 +150,16 @@ export function BarberDashboardScreen() {
                     <Ionicons name="alert-circle" color={theme.colors.danger} size={18} />
                     <Text style={[styles.warningTitle, { color: theme.colors.danger }]}>Hisob bloklangan</Text>
                   </View>
-                  <MoneyText amount={balance.demo_debt} color="danger" style={{ fontSize: 20 }} />
+                  <MoneyText amount={balance.debt} color="danger" style={{ fontSize: 20 }} />
                   <Text style={[styles.warningText, { color: theme.colors.danger }]}>Iltimos, balansni to'ldiring, aks holda yangi bookinglar cheklanishi mumkin.</Text>
                 </View>
-              ) : balance.demo_debt > 0 ? (
+              ) : balance.debt > 0 ? (
                 <View style={[styles.warningBox, { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine, flexDirection: "column", alignItems: "flex-start", gap: 6 }]}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     <Ionicons name="warning" color={theme.colors.warning} size={18} />
                     <Text style={[styles.warningTitle, { color: theme.colors.warning }]}>Qarzdorlik mavjud</Text>
                   </View>
-                  <MoneyText amount={balance.demo_debt} color="warning" style={{ fontSize: 20 }} />
+                  <MoneyText amount={balance.debt} color="warning" style={{ fontSize: 20 }} />
                   <Text style={[styles.warningText, { color: theme.colors.warning }]}>Hisobni to'ldiring, aks holda yangi bookinglar cheklanishi mumkin.</Text>
                 </View>
               ) : null}
@@ -167,7 +173,19 @@ export function BarberDashboardScreen() {
 
               <View style={[styles.topUpCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
                 <Text style={[styles.topUpTitle, { color: theme.colors.text }]}>Hisobni to'ldirish</Text>
-                <Text style={[styles.topUpHint, { color: theme.colors.muted }]}>Bu alpha test uchun demo to'ldirish.</Text>
+                <Text style={[styles.topUpHint, { color: theme.colors.muted }]}>Alpha test: haqiqiy karta to'lovi ulanmagan.</Text>
+                <View style={styles.providerRow}>
+                  <View style={[styles.providerPill, styles.providerPillActive, { borderColor: theme.colors.goldDim, backgroundColor: theme.colors.goldSoft }]}>
+                    <Ionicons name="flask-outline" size={14} color={theme.colors.gold} />
+                    <Text style={[styles.providerText, { color: theme.colors.gold }]}>Test rejim</Text>
+                  </View>
+                  <View style={[styles.providerPill, { borderColor: theme.colors.line, backgroundColor: theme.colors.input, opacity: 0.55 }]}>
+                    <Text style={[styles.providerText, { color: theme.colors.muted }]}>Payme soon</Text>
+                  </View>
+                  <View style={[styles.providerPill, { borderColor: theme.colors.line, backgroundColor: theme.colors.input, opacity: 0.55 }]}>
+                    <Text style={[styles.providerText, { color: theme.colors.muted }]}>Click soon</Text>
+                  </View>
+                </View>
                 <View style={styles.topUpRow}>
                   <TextInput
                     value={topUpAmount}
@@ -178,12 +196,13 @@ export function BarberDashboardScreen() {
                     style={[styles.topUpInput, { backgroundColor: theme.colors.input, borderColor: theme.colors.line, color: theme.colors.text }]}
                   />
                   <PrimaryButton
-                    title={topUpBusy ? "..." : "Demo to'ldirish"}
+                    title={topUpBusy ? "..." : "Hisobni to'ldirish"}
                     onPress={submitTopUp}
                     style={styles.topUpButton}
                     size="sm"
                   />
                 </View>
+                {topUpSuccess ? <Text style={[styles.successText, { color: theme.colors.success }]}>{topUpSuccess}</Text> : null}
               </View>
             </View>
           ) : null}
@@ -196,7 +215,7 @@ export function BarberDashboardScreen() {
           />
 
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Demo transactionlar</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Hisob operatsiyalari</Text>
             <Text style={[styles.sectionCount, { color: theme.colors.muted }]}>{transactions.length} ta</Text>
           </View>
           <View style={styles.list}>
@@ -504,6 +523,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: -4,
   },
+  providerRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  providerPill: {
+    minHeight: 34,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  providerPillActive: {
+    opacity: 1,
+  },
+  providerText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
   topUpRow: {
     flexDirection: "row",
     gap: 10,
@@ -521,6 +561,10 @@ const styles = StyleSheet.create({
   topUpButton: {
     minHeight: 50,
     paddingHorizontal: 14,
+  },
+  successText: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   sectionTitle: {
     color: colors.text,

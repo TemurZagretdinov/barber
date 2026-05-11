@@ -41,17 +41,17 @@ export function AdminNavigator() {
       <Tab.Screen
         name="AdminDashboard"
         component={AdminDashboardScreen}
-        options={{ title: "Dashboard", tabBarIcon: ({ color }) => <Ionicons name="grid-outline" color={color} size={21} /> }}
+        options={{ title: "Panel", tabBarIcon: ({ color }) => <Ionicons name="grid-outline" color={color} size={21} /> }}
       />
       <Tab.Screen
         name="AdminBookings"
         component={AdminBookingsScreen}
-        options={{ title: "Bookings", tabBarIcon: ({ color }) => <Ionicons name="calendar-outline" color={color} size={21} /> }}
+        options={{ title: "Bronlar", tabBarIcon: ({ color }) => <Ionicons name="calendar-outline" color={color} size={21} /> }}
       />
       <Tab.Screen
         name="AdminBarbers"
         component={AdminBarbersScreen}
-        options={{ title: "Barbers", tabBarIcon: ({ color }) => <Ionicons name="cut" color={color} size={21} /> }}
+        options={{ title: "Barberlar", tabBarIcon: ({ color }) => <Ionicons name="cut" color={color} size={21} /> }}
       />
     </Tab.Navigator>
   );

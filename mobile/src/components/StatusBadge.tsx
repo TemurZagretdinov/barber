@@ -13,9 +13,9 @@ const statusStyle = {
 
 const statusLabel: Record<BookingStatus, string> = {
   pending: "Kutilmoqda",
-  completed: "Tasdiqlandi",
+  completed: "Tugallandi",
   cancelled: "Bekor",
-  no_show: "Kelmadi",
+  no_show: "Kelmagan",
 };
 
 export function StatusBadge({ status }: { status: BookingStatus }) {

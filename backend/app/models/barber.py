@@ -48,7 +48,11 @@ class Barber(Base):
     vacations: Mapped[list["BarberVacation"]] = relationship(back_populates="barber", cascade="all, delete-orphan")
     favorited_by: Mapped[list["CustomerFavoriteBarber"]] = relationship(back_populates="barber", cascade="all, delete-orphan")
     transactions: Mapped[list["BarberTransaction"]] = relationship(back_populates="barber", cascade="all, delete-orphan")
-    daily_settlements: Mapped[list["BarberDailySettlement"]] = relationship(
+    payment_transactions: Mapped[list["PaymentTransaction"]] = relationship(
+        back_populates="barber", cascade="all, delete-orphan"
+    )
+    top_up_orders: Mapped[list["TopUpOrder"]] = relationship(back_populates="barber", cascade="all, delete-orphan")
+    daily_settlements: Mapped[list["DailySettlement"]] = relationship(
         back_populates="barber", cascade="all, delete-orphan"
     )
     demo_transactions: Mapped[list["DemoBarberTransaction"]] = relationship(

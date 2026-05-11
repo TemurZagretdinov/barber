@@ -23,9 +23,11 @@ from app.schemas.finance import (
     AdminDemoBarberFinanceRead,
     AdminDemoFinanceOverview,
     AdminFinanceOverview,
+    BarberTransactionRead,
     DailySettlementRunRequest,
     DailySettlementRunResponse,
     DemoDailySettlementRunResponse,
+    TopUpOrderRead,
 )
 from app.services.booking_service import (
     booking_to_with_barber,
@@ -43,6 +45,8 @@ from app.services.finance_service import (
     get_admin_demo_finance_overview,
     get_admin_barber_finance,
     get_admin_finance_overview,
+    list_payment_transactions,
+    list_top_up_orders,
     run_demo_daily_settlement,
     run_daily_settlement,
 )
@@ -118,8 +122,8 @@ def admin_barber_payload(db: Session, barber: Barber) -> BarberAdminRead:
     )
     base["balance"] = barber.balance
     base["debt"] = barber.debt
-    base["demo_balance"] = barber.demo_balance
-    base["demo_debt"] = barber.demo_debt
+    base["demo_balance"] = barber.balance
+    base["demo_debt"] = barber.debt
     base["commission_percent"] = barber.commission_percent
     return BarberAdminRead(**base)
 
@@ -278,6 +282,29 @@ def adjust_balance(
     db: Session = Depends(get_db),
 ) -> AdminBarberFinanceRead:
     return adjust_barber_balance(db, barber_id, payload.amount, payload.description)
+
+
+@router.post(
+    "/admin/barbers/{barber_id}/balance/adjust",
+    response_model=AdminBarberFinanceRead,
+    dependencies=[Depends(require_admin)],
+)
+def adjust_balance_new(
+    barber_id: int,
+    payload: AdminBalanceAdjustmentRequest,
+    db: Session = Depends(get_db),
+) -> AdminBarberFinanceRead:
+    return adjust_barber_balance(db, barber_id, payload.amount, payload.description)
+
+
+@router.get("/admin/payment/top-up-orders", response_model=list[TopUpOrderRead], dependencies=[Depends(require_admin)])
+def payment_top_up_orders(db: Session = Depends(get_db)) -> list:
+    return list_top_up_orders(db)
+
+
+@router.get("/admin/payment/transactions", response_model=list[BarberTransactionRead], dependencies=[Depends(require_admin)])
+def payment_transactions(db: Session = Depends(get_db)) -> list:
+    return list_payment_transactions(db)
 
 
 @router.get("/admin/demo-finance/overview", response_model=AdminDemoFinanceOverview, dependencies=[Depends(require_admin)])

@@ -104,7 +104,7 @@ export function BarberDashboardPage() {
         { label: "Qarzdorlik", value: balance.debt, icon: AlertTriangle, tone: balance.debt > 0 ? "danger" : "light" },
         { label: "Bugungi tushum", value: balance.today_gross_revenue, icon: Banknote, tone: "gold" },
         { label: "Platforma komissiyasi", value: balance.today_commission, icon: ReceiptText, tone: "light" },
-        { label: "Toza daromad", value: balance.today_net_earning, icon: TrendingUp, tone: "success" },
+        { label: "Sof daromad", value: balance.today_net_earning, icon: TrendingUp, tone: "success" },
       ]
     : [];
 

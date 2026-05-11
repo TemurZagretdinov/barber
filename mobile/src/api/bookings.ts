@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import type { AdminDashboard, BarberDashboard, Booking, BookingCreate, BookingStatus, BookingWithBarber } from "../types/booking";
-import type { AdminFinanceOverview, BarberBalance, BarberTransaction } from "../types/finance";
+import type { AdminFinanceOverview, BarberBalance, BarberTransaction, TopUpConfirmResponse, TopUpOrder } from "../types/finance";
 
 export async function createBooking(payload: BookingCreate): Promise<Booking> {
   const response = await apiClient.post<Booking>("/public/bookings", payload);
@@ -18,12 +18,12 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
 }
 
 export async function getAdminFinanceOverview(): Promise<AdminFinanceOverview> {
-  const response = await apiClient.get<AdminFinanceOverview>("/admin/demo-finance/overview");
+  const response = await apiClient.get<AdminFinanceOverview>("/admin/finance/overview");
   return response.data;
 }
 
 export async function runAdminSettlement(date: string) {
-  const response = await apiClient.post("/admin/demo-settlements/run", { date });
+  const response = await apiClient.post("/admin/settlements/run", { date });
   return response.data;
 }
 
@@ -63,17 +63,28 @@ export async function getBarberDashboard(date: string): Promise<BarberDashboard>
 }
 
 export async function getBarberBalance(): Promise<BarberBalance> {
-  const response = await apiClient.get<BarberBalance>("/barber/demo-finance");
+  const response = await apiClient.get<BarberBalance>("/barber/finance");
   return response.data;
 }
 
 export async function getBarberTransactions(): Promise<BarberTransaction[]> {
-  const response = await apiClient.get<BarberTransaction[]>("/barber/demo-transactions");
+  const response = await apiClient.get<BarberTransaction[]>("/barber/transactions");
   return response.data;
 }
 
 export async function topUpBarberBalance(amount: number): Promise<BarberBalance> {
-  const response = await apiClient.post<BarberBalance>("/barber/demo-balance/top-up", { amount });
+  const order = await initBarberTopUp(amount);
+  await confirmMockBarberTopUp(order.order_id);
+  return getBarberBalance();
+}
+
+export async function initBarberTopUp(amount: number, provider = "mock"): Promise<TopUpOrder> {
+  const response = await apiClient.post<TopUpOrder>("/barber/balance/top-up/init", { amount, provider });
+  return response.data;
+}
+
+export async function confirmMockBarberTopUp(orderId: number): Promise<TopUpConfirmResponse> {
+  const response = await apiClient.post<TopUpConfirmResponse>(`/barber/balance/top-up/mock-confirm/${orderId}`);
   return response.data;
 }
 

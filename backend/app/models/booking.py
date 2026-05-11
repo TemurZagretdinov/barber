@@ -41,6 +41,7 @@ class Booking(Base):
     customer: Mapped["User | None"] = relationship(back_populates="bookings")
     review: Mapped["BookingReview | None"] = relationship(back_populates="booking", cascade="all, delete-orphan")
     transactions: Mapped[list["BarberTransaction"]] = relationship(back_populates="booking")
+    payment_transactions: Mapped[list["PaymentTransaction"]] = relationship(back_populates="booking")
     demo_transactions: Mapped[list["DemoBarberTransaction"]] = relationship(back_populates="booking")
 
     @property

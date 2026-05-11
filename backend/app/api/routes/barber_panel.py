@@ -29,6 +29,9 @@ from app.schemas.finance import (
     BarberTransactionRead,
     DemoBarberFinanceRead,
     DemoBarberTransactionRead,
+    TopUpConfirmResponse,
+    TopUpInitRequest,
+    TopUpOrderRead,
 )
 from app.services.booking_service import (
     booking_to_with_barber,
@@ -38,6 +41,8 @@ from app.services.booking_service import (
 )
 from app.services.dashboard_service import get_barber_dashboard, get_barber_dashboard_v2
 from app.services.finance_service import (
+    confirm_mock_top_up_order,
+    create_top_up_order,
     get_barber_balance_summary,
     get_demo_barber_finance,
     list_barber_transactions,
@@ -75,12 +80,38 @@ def barber_balance(
     return get_barber_balance_summary(db, barber)
 
 
+@router.get("/barber/finance", response_model=BarberBalanceRead)
+def barber_finance(
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> BarberBalanceRead:
+    return get_barber_balance_summary(db, barber)
+
+
 @router.get("/barber/transactions", response_model=list[BarberTransactionRead])
 def barber_transactions(
     barber: Barber = Depends(get_current_barber),
     db: Session = Depends(get_db),
 ) -> list:
     return list_barber_transactions(db, barber.id)
+
+
+@router.post("/barber/balance/top-up/init", response_model=TopUpOrderRead)
+def barber_top_up_init(
+    payload: TopUpInitRequest,
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> TopUpOrderRead:
+    return create_top_up_order(db, barber, payload.amount, payload.provider)
+
+
+@router.post("/barber/balance/top-up/mock-confirm/{order_id}", response_model=TopUpConfirmResponse)
+def barber_top_up_mock_confirm(
+    order_id: int,
+    barber: Barber = Depends(get_current_barber),
+    db: Session = Depends(get_db),
+) -> TopUpConfirmResponse:
+    return confirm_mock_top_up_order(db, barber, order_id)
 
 
 @router.post("/barber/balance/top-up", response_model=BarberBalanceRead)

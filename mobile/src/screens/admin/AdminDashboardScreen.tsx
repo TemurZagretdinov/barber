@@ -150,7 +150,7 @@ export function AdminDashboardScreen() {
                   {finance.barbers_with_debt.slice(0, 5).map((item) => (
                     <View key={item.barber_id} style={[styles.debtRow, { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine }]}>
                       <Text style={[styles.debtName, { color: theme.colors.text }]} numberOfLines={2}>{item.full_name}</Text>
-                      <MoneyText amount={item.demo_debt} color="warning" compact />
+                      <MoneyText amount={item.debt} color="warning" compact />
                     </View>
                   ))}
                 </View>
