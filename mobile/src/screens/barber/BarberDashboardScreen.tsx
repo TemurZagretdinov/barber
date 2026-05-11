@@ -123,56 +123,65 @@ export function BarberDashboardScreen() {
             <MetricCard label="Kutilmoqda" value={data.pending_count} icon="time-outline" />
           </View>
 
-          {/* Revenue panel */}
+          {/* Main Account panel */}
           <View style={[styles.revenueCard, { backgroundColor: theme.colors.goldSoft, borderColor: theme.colors.goldDim }]}>
-            <Text style={[styles.revenueLabel, { color: theme.colors.muted }]} numberOfLines={1}>Demo finance - real to'lov ulanmagan</Text>
-            <MoneyText amount={balance?.today_gross_revenue ?? data.today_revenue} color="gold" style={styles.revenueValue} />
+            <Text style={[styles.revenueLabel, { color: theme.colors.muted }]} numberOfLines={1}>Umumiy hisob</Text>
+            <MoneyText amount={balance?.demo_balance ?? 0} color="gold" style={styles.revenueValue} />
             <View style={[styles.revenueDivider, { backgroundColor: theme.colors.line }]} />
             <Text style={[styles.revenueWeek, { color: theme.colors.muted }]}>
-              Bu alpha test uchun ichki hisob-kitob. Komissiya {balance?.commission_percent ?? 10}%.
+              Alpha test uchun ichki hisob-kitob
+            </Text>
+            <Text style={[styles.revenueWeek, { color: theme.colors.muted, marginTop: 4 }]}>
+              Platforma komissiyasi: {balance?.commission_percent ?? 10}%
             </Text>
           </View>
 
           {balance ? (
             <View style={styles.financeBlock}>
               {balance.is_financially_blocked ? (
-                <View style={[styles.warningBox, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine }]}>
-                  <Ionicons name="alert-circle" color={theme.colors.danger} size={18} />
-                  <Text style={[styles.warningText, { color: theme.colors.danger }]}>Hisobingiz bloklangan. Iltimos, balansni to'ldiring.</Text>
+                <View style={[styles.warningBox, { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerLine, flexDirection: "column", alignItems: "flex-start", gap: 6 }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="alert-circle" color={theme.colors.danger} size={18} />
+                    <Text style={[styles.warningTitle, { color: theme.colors.danger }]}>Hisob bloklangan</Text>
+                  </View>
+                  <MoneyText amount={balance.demo_debt} color="danger" style={{ fontSize: 20 }} />
+                  <Text style={[styles.warningText, { color: theme.colors.danger }]}>Iltimos, balansni to'ldiring, aks holda yangi bookinglar cheklanishi mumkin.</Text>
                 </View>
               ) : balance.demo_debt > 0 ? (
-                <View style={[styles.warningBox, { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine }]}>
-                  <Ionicons name="warning" color={theme.colors.warning} size={18} />
-                  <Text style={[styles.warningText, { color: theme.colors.warning }]}>Hisobingizda qarzdorlik bor. Keyingi bookinglarni olish uchun balansni to'ldiring.</Text>
+                <View style={[styles.warningBox, { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningLine, flexDirection: "column", alignItems: "flex-start", gap: 6 }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="warning" color={theme.colors.warning} size={18} />
+                    <Text style={[styles.warningTitle, { color: theme.colors.warning }]}>Qarzdorlik mavjud</Text>
+                  </View>
+                  <MoneyText amount={balance.demo_debt} color="warning" style={{ fontSize: 20 }} />
+                  <Text style={[styles.warningText, { color: theme.colors.warning }]}>Hisobni to'ldiring, aks holda yangi bookinglar cheklanishi mumkin.</Text>
                 </View>
               ) : null}
 
               <View style={styles.financeGrid}>
-                <FinanceCard label="Demo balans" value={balance.demo_balance} icon="wallet-outline" dark />
-                <FinanceCard label="Qarzdorlik" value={balance.demo_debt} icon="alert-circle-outline" danger={balance.demo_debt > 0} />
                 <FinanceCard label="Bugungi tushum" value={balance.today_gross_revenue} icon="cash-outline" />
                 <FinanceCard label={`Komissiya ${balance.commission_percent}%`} value={balance.today_commission} icon="receipt-outline" />
-                <FinanceCard label="Toza daromad" value={balance.today_net_earning} icon="trending-up-outline" success />
-                <FinanceCard label="Tugallangan" value={balance.today_completed_bookings} icon="checkmark-done-outline" isCount />
+                <FinanceCard label="Sof daromad" value={balance.today_net_earning} icon="trending-up-outline" success />
+                <FinanceCard label="Mijozlar" value={balance.today_completed_bookings} icon="people-outline" isCount />
               </View>
 
               <View style={[styles.topUpCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.line }]}>
-                <Text style={[styles.topUpTitle, { color: theme.colors.text }]}>Hisobni demo to'ldirish</Text>
-                <Text style={[styles.topUpHint, { color: theme.colors.muted }]}>Real karta yoki bank to'lovi ulanmagan.</Text>
+                <Text style={[styles.topUpTitle, { color: theme.colors.text }]}>Hisobni to'ldirish</Text>
+                <Text style={[styles.topUpHint, { color: theme.colors.muted }]}>Bu alpha test uchun demo to'ldirish.</Text>
                 <View style={styles.topUpRow}>
                   <TextInput
                     value={topUpAmount}
                     onChangeText={setTopUpAmount}
                     keyboardType="number-pad"
-                    placeholder="100000"
+                    placeholder="Summa"
                     placeholderTextColor={theme.colors.subtle}
                     style={[styles.topUpInput, { backgroundColor: theme.colors.input, borderColor: theme.colors.line, color: theme.colors.text }]}
                   />
                   <PrimaryButton
-                    title={topUpBusy ? "..." : "Demo"}
+                    title={topUpBusy ? "..." : "Demo to'ldirish"}
                     onPress={submitTopUp}
                     style={styles.topUpButton}
-                    icon={<Ionicons name="add-circle-outline" size={18} color={theme.colors.onGold} />}
+                    size="sm"
                   />
                 </View>
               </View>
@@ -468,6 +477,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
+  },
+  warningTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    textTransform: "uppercase",
   },
   warningText: {
     flex: 1,
